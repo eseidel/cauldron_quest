@@ -1,0 +1,9 @@
+name: cauldron_quest
+description: Looking at board-game winrates.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+environment:
+  sdk: ">=2.7.0 <3.0.0"
+
+dependencies:
+  stats: any
