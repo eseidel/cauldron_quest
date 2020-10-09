@@ -70,20 +70,115 @@ class Board {
   }
 }
 
-bool threeTries(bool doTry()) => doTry() || doTry() || doTry();
+bool threeTries(bool doTry(List<int> dice)) {
+  List<int> dice = [null, null, null];
+  return doTry(dice) || doTry(dice) || doTry(dice);
+}
 
-bool tryRevealCharm() => threeTries(() =>
-    numberDie.roll().isEven &&
-    numberDie.roll().isEven &&
-    numberDie.roll().isEven);
+bool tryRevealCharm() {
+  return threeTries(
+    (List<int> dice) {
+      for (int i = 0; i < dice.length; i++) {
+        int lastValue = dice[i];
+        if (lastValue == null || !lastValue.isEven) {
+          dice[i] = numberDie.roll();
+        }
+      }
+      return dice.every((int value) => value.isEven);
+    },
+  );
+}
 
-bool trySwapCharm() => threeTries(() =>
-    numberDie.roll().isOdd && numberDie.roll().isOdd && numberDie.roll().isOdd);
+bool trySwapCharm() {
+  return threeTries(
+    (List<int> dice) {
+      for (int i = 0; i < dice.length; i++) {
+        int lastValue = dice[i];
+        if (lastValue == null || !lastValue.isOdd) {
+          dice[i] = numberDie.roll();
+        }
+      }
+      return dice.every((int value) => value.isOdd);
+    },
+  );
+}
 
-bool trySuperPowerCharm() => threeTries(
-    () => (numberDie.roll() + numberDie.roll() + numberDie.roll()) == 12);
+enum RerollGroup {
+  smallest,
+  largest,
+}
 
-void charmPercentages() {
+class Reroll {
+  final int count;
+  final RerollGroup group;
+  Reroll(this.count, this.group);
+
+  Reroll.all()
+      : count = 3,
+        group = RerollGroup.smallest;
+
+  Reroll.none()
+      : count = 0,
+        group = RerollGroup.smallest;
+
+  Reroll.smallest([this.count = 1]) : group = RerollGroup.smallest;
+  Reroll.largest([this.count = 1]) : group = RerollGroup.largest;
+
+  @override
+  String toString() {
+    return "$count, $group";
+  }
+
+  @override
+  bool operator ==(Object o) =>
+      o is Reroll && count == o.count && group == o.group;
+}
+
+Reroll planReroll(List<int> dice) {
+  if (dice.any((element) => element == null)) return Reroll.all();
+  int sum = dice.fold(0, (sum, value) => sum + value);
+  assert(sum > 2);
+  assert(dice.length == 3);
+  if (sum < 7) {
+    return Reroll.smallest(2);
+  } else if (sum < 12) {
+    return Reroll.smallest();
+  } else if (sum == 12) {
+    // Only not an assert for testing.
+    return Reroll.none();
+  } else if (sum < 18) {
+    return Reroll.largest();
+  } else if (sum == 18) {
+    // Re-roll two largest (they're all 6s).
+    return Reroll.largest(2);
+  }
+  assert(false);
+  return Reroll.none();
+}
+
+void executeReroll(List<int> dice, Reroll reroll) {
+  bool hasNulls = dice.any((element) => element == null);
+  if (!hasNulls) {
+    if (reroll.group == RerollGroup.smallest)
+      dice.sort((a, b) => a.compareTo(b));
+    else
+      dice.sort((a, b) => b.compareTo(a));
+  }
+  assert(!hasNulls || reroll == Reroll.all());
+  for (int i = 0; i < reroll.count; i++) {
+    dice[i] = numberDie.roll();
+  }
+}
+
+bool trySuperPowerCharm() {
+  return threeTries((List<int> dice) {
+    Reroll reroll = planReroll(dice);
+    executeReroll(dice, reroll);
+    return dice.fold(0, (sum, value) => sum + value) == 12;
+  });
+}
+
+void printCharmPercentages() {
   int tries = 100000;
   int revealCharm = 0;
   int swapCharm = 0;
@@ -93,9 +188,14 @@ void charmPercentages() {
     if (trySwapCharm()) swapCharm += 1;
     if (trySuperPowerCharm()) superPowerCharm += 1;
   }
-  print("$revealCharm");
-  print("$swapCharm");
-  print("$superPowerCharm");
+  String toPercent(int value) {
+    double percent = value / tries * 100;
+    return percent.toStringAsFixed(1) + "%";
+  }
+
+  print("Reveal: ${toPercent(revealCharm)}");
+  print("Swap: ${toPercent(swapCharm)}");
+  print("Super Power: ${toPercent(superPowerCharm)}");
 }
 
 int moveCount(Action action) {
@@ -161,15 +261,24 @@ void printAggregateStatistics(List<GameStats> gameStats) {
   printStats("Wizard spaces moved",
       gameStats.map((stats) => stats.wizardMoveDistance));
 
+  String toPercent(int value) {
+    double percent = value / gameStats.length * 100;
+    return percent.toStringAsFixed(1) + "%";
+  }
+
   int possibleWinCount = 0;
   gameStats.forEach((GameStats stats) {
     if (stats.couldHaveWon) possibleWinCount++;
   });
-  print("$possibleWinCount max possible wins");
+  print("${toPercent(possibleWinCount)} max wins, N=${gameStats.length}");
 }
 
 void main() {
+  print("Charm % chance of success:");
+  printCharmPercentages();
+
   int tries = 10000;
+  print("\nSimulating $tries games:");
   int blocksUntilLoss = 7; // 6 paths, plus the one removal token.
   List<GameStats> gameStats = <GameStats>[];
   for (int i = 0; i < tries; i++) {
