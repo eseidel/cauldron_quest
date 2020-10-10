@@ -271,7 +271,7 @@ class CauldronQuest {
 
   bool get isComplete => stats.blockCount >= blocksUntilLoss;
 
-  void handleRole(Actor actor, Action action) {
+  void handleRoll(Actor actor, Action action) {
     stats.turnCount++;
     if (actor == Actor.wizard && action == Action.magic) {
       stats.blockCount++;
@@ -298,7 +298,7 @@ class CauldronQuest {
   void takeTurn() {
     Actor actor = actorDie.roll();
     Action action = actionDie.roll();
-    handleRole(actor, action);
+    handleRoll(actor, action);
   }
 }
 
