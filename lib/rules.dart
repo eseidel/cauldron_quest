@@ -44,22 +44,33 @@ final Die<Action> actionDie = Die<Action>([
 // 10 slots, start on 0, wizard path crosses 4, blocker on 7.
 class Path {
   // TODO(eseidel): Slots can hold multiple pieces?
-  List<Bottle> slots;
+  List<Bottle> slots = List(10);
 }
 
-int ingredientCount = 6;
-List<int> blockers = List.generate(6, (index) => index);
-
 class Bottle {
+  // TODO(eseidel): Make blockers an enum?
   final int ingredient;
   bool visible = false;
 
   Bottle(this.ingredient);
 }
 
+class Blocker {
+  // TODO(eseidel): Make blockers an enum?
+  final int blocker;
+  bool visible = false;
+
+  Blocker(this.blocker);
+}
+
 class Board {
-  List<Path> paths;
-  var wizardPath;
+  static int ingredientCount = 6;
+
+  List<Path> paths = List.generate(6, (index) => Path());
+  List<int> winningIngredients;
+  List<Blocker> blockers;
+  int wizardLocation = 0;
+  // Wizard has 12 locations, every other intersects with a path.
 
   Board() {
     var shuffledIngredients =
@@ -67,6 +78,8 @@ class Board {
     for (int i = 0; i < paths.length; i++) {
       paths[i].slots[0] = shuffledIngredients[i];
     }
+    blockers = List.generate(paths.length, (index) => Blocker(index))
+      ..shuffle();
   }
 }
 
@@ -216,30 +229,6 @@ class GameStats {
   int potionsRevealed = 0;
 
   bool get couldHaveWon => potionsRevealed > 3 && potionMoveDistance > 30;
-
-  void countRoll(Actor actor, Action action) {
-    turnCount++;
-    if (actor == Actor.wizard && action == Action.magic) {
-      blockCount++;
-      return;
-    }
-    if (actor == Actor.potion && action == Action.magic) {
-      magicCount++;
-      if (tryRevealCharm()) potionsRevealed++;
-      return;
-    }
-    if (actor == Actor.wizard) {
-      wizardMoveCount++;
-      wizardMoveDistance += moveCount(action);
-      return;
-    }
-    if (actor == Actor.potion) {
-      potionMoveCount++;
-      potionMoveDistance += moveCount(action);
-      return;
-    }
-    assert(false);
-  }
 }
 
 void printAggregateStatistics(List<GameStats> gameStats) {
@@ -273,22 +262,61 @@ void printAggregateStatistics(List<GameStats> gameStats) {
   print("${toPercent(possibleWinCount)} max wins, N=${gameStats.length}");
 }
 
+class CauldronQuest {
+  final GameStats stats = GameStats();
+  final Board board = Board();
+  final Planner planner = Planner();
+
+  static int blocksUntilLoss = 7; // 6 paths, plus the one removal token.
+
+  bool get isComplete => stats.blockCount >= blocksUntilLoss;
+
+  void handleRole(Actor actor, Action action) {
+    stats.turnCount++;
+    if (actor == Actor.wizard && action == Action.magic) {
+      stats.blockCount++;
+      return;
+    }
+    if (actor == Actor.potion && action == Action.magic) {
+      stats.magicCount++;
+      if (tryRevealCharm()) stats.potionsRevealed++;
+      return;
+    }
+    if (actor == Actor.wizard) {
+      stats.wizardMoveCount++;
+      stats.wizardMoveDistance += moveCount(action);
+      return;
+    }
+    if (actor == Actor.potion) {
+      stats.potionMoveCount++;
+      stats.potionMoveDistance += moveCount(action);
+      return;
+    }
+    assert(false);
+  }
+
+  void takeTurn() {
+    Actor actor = actorDie.roll();
+    Action action = actionDie.roll();
+    handleRole(actor, action);
+  }
+}
+
+class Planner {}
+
 void main() {
   print("Charm % chance of success:");
   printCharmPercentages();
 
   int tries = 10000;
   print("\nSimulating $tries games:");
-  int blocksUntilLoss = 7; // 6 paths, plus the one removal token.
   List<GameStats> gameStats = <GameStats>[];
   for (int i = 0; i < tries; i++) {
-    GameStats stats = GameStats();
-    while (stats.blockCount < blocksUntilLoss) {
-      Actor actor = actorDie.roll();
-      Action action = actionDie.roll();
-      stats.countRoll(actor, action);
+    CauldronQuest game = CauldronQuest();
+    while (!game.isComplete) {
+      game.takeTurn();
     }
-    gameStats.add(stats);
+    gameStats.add(game.stats);
   }
   printAggregateStatistics(gameStats);
 }
