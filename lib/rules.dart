@@ -46,10 +46,10 @@ class Bottle {
   bool visible = false;
 
   // 0-6 are normal paths, 7 is the wizard's path.
-  int path;
+  int? path;
   // 0-indexed:
 // 10 slots, start on 0, wizard path crosses 4, blocker on 7.
-  int pathOffset;
+  int? pathOffset;
 
   Bottle(this.ingredient);
 }
@@ -60,7 +60,7 @@ class Board {
   static int pathLength = 10;
   static int wizardPathLength = 12;
 
-  List<int> winningIngredients;
+  List<int>? winningIngredients;
   List<bool> _pathIsBlocked = List.filled(6, false);
   int wizardLocation = 0;
   // Wizard path has 12 locations, 6 of which are on potion paths.
@@ -122,35 +122,35 @@ class Board {
   }
 }
 
-bool threeTries(bool doTry(List<int> dice)) {
-  List<int> dice = [null, null, null];
+bool threeTries(bool doTry(List<int?> dice)) {
+  List<int?> dice = [null, null, null];
   return doTry(dice) || doTry(dice) || doTry(dice);
 }
 
 bool tryRevealCharm() {
   return threeTries(
-    (List<int> dice) {
+    (List<int?> dice) {
       for (int i = 0; i < dice.length; i++) {
-        int lastValue = dice[i];
+        int? lastValue = dice[i];
         if (lastValue == null || !lastValue.isEven) {
           dice[i] = numberDie.roll();
         }
       }
-      return dice.every((int value) => value.isEven);
+      return dice.every((int? value) => value!.isEven);
     },
   );
 }
 
 bool trySwapCharm() {
   return threeTries(
-    (List<int> dice) {
+    (List<int?> dice) {
       for (int i = 0; i < dice.length; i++) {
-        int lastValue = dice[i];
+        int? lastValue = dice[i];
         if (lastValue == null || !lastValue.isOdd) {
           dice[i] = numberDie.roll();
         }
       }
-      return dice.every((int value) => value.isOdd);
+      return dice.every((int? value) => value!.isOdd);
     },
   );
 }
@@ -186,9 +186,9 @@ class Reroll {
       o is Reroll && count == o.count && group == o.group;
 }
 
-Reroll planReroll(List<int> dice) {
+Reroll planReroll(List<int?> dice) {
   if (dice.any((element) => element == null)) return Reroll.all();
-  int sum = dice.fold(0, (sum, value) => sum + value);
+  int sum = dice.fold(0, (sum, value) => sum + value!);
   assert(sum > 2);
   assert(dice.length == 3);
   if (sum < 7) {
@@ -208,13 +208,13 @@ Reroll planReroll(List<int> dice) {
   return Reroll.none();
 }
 
-void executeReroll(List<int> dice, Reroll reroll) {
+void executeReroll(List<int?> dice, Reroll reroll) {
   bool hasNulls = dice.any((element) => element == null);
   if (!hasNulls) {
     if (reroll.group == RerollGroup.smallest)
-      dice.sort((a, b) => a.compareTo(b));
+      dice.sort((a, b) => a!.compareTo(b!));
     else
-      dice.sort((a, b) => b.compareTo(a));
+      dice.sort((a, b) => b!.compareTo(a!));
   }
   assert(!hasNulls || reroll == Reroll.all());
   for (int i = 0; i < reroll.count; i++) {
@@ -223,10 +223,10 @@ void executeReroll(List<int> dice, Reroll reroll) {
 }
 
 bool trySuperPowerCharm() {
-  return threeTries((List<int> dice) {
+  return threeTries((List<int?> dice) {
     Reroll reroll = planReroll(dice);
     executeReroll(dice, reroll);
-    return dice.fold(0, (sum, value) => sum + value) == 12;
+    return dice.fold(0, (dynamic sum, value) => sum + value) == 12;
   });
 }
 
