@@ -3,7 +3,7 @@
 Just a quick script to look at winrates in my kid's favorite boardgame.
 
 # How to run
-% dart run --enable-asserts lib/rules.dart
+% dart run --enable-asserts bin/simulate.dart
 
 # Example output
 
