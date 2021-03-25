@@ -21,3 +21,8 @@ Wizard move rolled: {count: 10000, average: 6.95, min: 0, max: 32, median: 6.0, 
 Potion spaces moved: {count: 10000, average: 46.6, min: 0, max: 171, median: 44.0, standardDeviation: 22.0}
 Wizard spaces moved: {count: 10000, average: 23.2, min: 0, max: 109, median: 21.0, standardDeviation: 12.5}
 72.4% max wins, N=10000
+
+
+Issues:
+* Need a better representation of the move graph.
+* 

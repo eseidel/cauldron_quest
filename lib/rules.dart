@@ -40,46 +40,85 @@ final Die<Action> actionDie = Die<Action>([
   Action.moveFour,
 ]);
 
-// 0-indexed:
-// 10 slots, start on 0, wizard path crosses 4, blocker on 7.
-class Path {
-  // TODO(eseidel): Slots can hold multiple pieces?
-  List<Bottle> slots = List(10);
-}
-
 class Bottle {
   // TODO(eseidel): Make blockers an enum?
   final int ingredient;
   bool visible = false;
 
+  // 0-6 are normal paths, 7 is the wizard's path.
+  int path;
+  // 0-indexed:
+// 10 slots, start on 0, wizard path crosses 4, blocker on 7.
+  int pathOffset;
+
   Bottle(this.ingredient);
-}
-
-class Blocker {
-  // TODO(eseidel): Make blockers an enum?
-  final int blocker;
-  bool visible = false;
-
-  Blocker(this.blocker);
 }
 
 class Board {
   static int ingredientCount = 6;
+  static int pathCount = 6;
+  static int pathLength = 10;
+  static int wizardPathLength = 12;
 
-  List<Path> paths = List.generate(6, (index) => Path());
   List<int> winningIngredients;
-  List<Blocker> blockers;
+  List<bool> _pathIsBlocked = List.filled(6, false);
   int wizardLocation = 0;
-  // Wizard has 12 locations, every other intersects with a path.
+  // Wizard path has 12 locations, 6 of which are on potion paths.
+
+  bool haveUsedSpellBreaker = false;
 
   Board() {
     var shuffledIngredients =
         List.generate(ingredientCount, (index) => Bottle(index))..shuffle();
-    for (int i = 0; i < paths.length; i++) {
-      paths[i].slots[0] = shuffledIngredients[i];
+    for (int i = 0; i < pathCount; i++) {
+      shuffledIngredients[i].path = i;
+      shuffledIngredients[i].pathOffset = 0;
     }
-    blockers = List.generate(paths.length, (index) => Blocker(index))
-      ..shuffle();
+  }
+
+  void moveWizardOneSpace() {
+    int newLocation = (wizardLocation + 1) % wizardPathLength;
+    // if newLocation has a potion, move the potion to the nearest start location.
+    wizardLocation = newLocation;
+  }
+
+  void moveWizard(int spacesToMove) {
+    while (spacesToMove-- > 0) moveWizardOneSpace();
+  }
+
+  Iterable<int> collectBlockedPaths() sync* {
+    for (int i = 0; i < _pathIsBlocked.length; i++) {
+      if (pathIsBlocked(i)) yield i;
+    }
+  }
+
+  Iterable<int> collectUnblockedPaths() sync* {
+    for (int i = 0; i < _pathIsBlocked.length; i++) {
+      if (!pathIsBlocked(i)) yield i;
+    }
+  }
+
+  int get unblockedPathCount => collectUnblockedPaths().length;
+
+  void blockRandomPath() {
+    List<int> pathsToBlock = collectUnblockedPaths().toList()..shuffle();
+    assert(pathsToBlock.isNotEmpty);
+    blockPath(pathsToBlock.first);
+  }
+
+  // Mostly for testing.
+  void blockPath(int path) {
+    assert(!pathIsBlocked(path));
+    _pathIsBlocked[path] = true;
+  }
+
+  bool pathIsBlocked(int path) => _pathIsBlocked[path];
+
+  void unblockWithSpellBreaker(int path) {
+    assert(!haveUsedSpellBreaker);
+    assert(pathIsBlocked(path));
+    haveUsedSpellBreaker = true;
+    _pathIsBlocked[path] = false;
   }
 }
 
@@ -269,27 +308,42 @@ class CauldronQuest {
 
   static int blocksUntilLoss = 7; // 6 paths, plus the one removal token.
 
+  // TODO(eseidel): This should use board.unblockedPathCount once
+  // we know how to use the spellbreaker token.
   bool get isComplete => stats.blockCount >= blocksUntilLoss;
 
   void handleRoll(Actor actor, Action action) {
     stats.turnCount++;
     if (actor == Actor.wizard && action == Action.magic) {
       stats.blockCount++;
+      board.blockRandomPath();
+      // TODO(eseidel): Hack until we know how to plan spell-breaker usage.
+      if (!board.haveUsedSpellBreaker)
+        board.unblockWithSpellBreaker(board.collectBlockedPaths().first);
       return;
     }
     if (actor == Actor.potion && action == Action.magic) {
       stats.magicCount++;
-      if (tryRevealCharm()) stats.potionsRevealed++;
+      if (tryRevealCharm()) {
+        stats.potionsRevealed++;
+        // Reveal reveal = planner.planPotionReveal();
+        // executeReveal(reveal);
+      }
       return;
     }
     if (actor == Actor.wizard) {
       stats.wizardMoveCount++;
-      stats.wizardMoveDistance += moveCount(action);
+      int spaces = moveCount(action);
+      stats.wizardMoveDistance += spaces;
+      board.moveWizard(spaces);
       return;
     }
     if (actor == Actor.potion) {
       stats.potionMoveCount++;
-      stats.potionMoveDistance += moveCount(action);
+      int spaces = moveCount(action);
+      stats.potionMoveDistance += spaces;
+      // PotionMove move = planner.planPotionMove(spaces);
+      // executeMove(move);
       return;
     }
     assert(false);

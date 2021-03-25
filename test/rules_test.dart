@@ -31,10 +31,27 @@ void main() {
     expect(dice.contains(3), equals(true));
   });
 
-  test('super power charm executeReroll largest', () {
-    var dice = [1, 2, 3];
-    executeReroll(dice, Reroll.largest(1));
-    expect(dice.contains(1), equals(true));
-    expect(dice.contains(2), equals(true));
+  test('path blocking', () {
+    Board board = Board();
+    expect(board.unblockedPathCount, 6);
+    board.blockRandomPath();
+    expect(board.unblockedPathCount, 5);
+  });
+
+  test('wizard moving', () {
+    Board board = Board();
+    expect(board.wizardLocation, 0);
+    board.moveWizard(3);
+    expect(board.wizardLocation, 3);
+  });
+
+  test('spellbreaker token', () {
+    Board board = Board();
+    expect(board.haveUsedSpellBreaker, false);
+    board.blockPath(0);
+    expect(board.pathIsBlocked(0), true);
+    board.unblockWithSpellBreaker(0);
+    expect(board.pathIsBlocked(0), false);
+    expect(board.haveUsedSpellBreaker, true);
   });
 }
