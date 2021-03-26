@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'stats.dart';
+import 'planner.dart';
 
 var random = Random();
 
@@ -186,28 +187,6 @@ class Reroll {
       o is Reroll && count == o.count && group == o.group;
 }
 
-Reroll planReroll(List<int?> dice) {
-  if (dice.any((element) => element == null)) return Reroll.all();
-  int sum = dice.fold(0, (sum, value) => sum + value!);
-  assert(sum > 2);
-  assert(dice.length == 3);
-  if (sum < 7) {
-    return Reroll.smallest(2);
-  } else if (sum < 12) {
-    return Reroll.smallest();
-  } else if (sum == 12) {
-    // Only not an assert for testing.
-    return Reroll.none();
-  } else if (sum < 18) {
-    return Reroll.largest();
-  } else if (sum == 18) {
-    // Re-roll two largest (they're all 6s).
-    return Reroll.largest(2);
-  }
-  assert(false);
-  return Reroll.none();
-}
-
 void executeReroll(List<int?> dice, Reroll reroll) {
   bool hasNulls = dice.any((element) => element == null);
   if (!hasNulls) {
@@ -222,9 +201,9 @@ void executeReroll(List<int?> dice, Reroll reroll) {
   }
 }
 
-bool trySuperPowerCharm() {
+bool trySuperPowerCharm(Planner planner) {
   return threeTries((List<int?> dice) {
-    Reroll reroll = planReroll(dice);
+    Reroll reroll = planner.planReroll(dice);
     executeReroll(dice, reroll);
     return dice.fold(0, (dynamic sum, value) => sum + value) == 12;
   });
@@ -260,6 +239,11 @@ class CauldronQuest {
     }
     if (actor == Actor.potion && action == Action.magic) {
       stats.magicCount++;
+      // Plan which magic to do.
+      // Reveal if still to reveal.
+      // Swap if swapping reduces total distance to win.
+      // Otherwise supercharm?
+
       if (tryRevealCharm()) {
         stats.potionsRevealed++;
         // Reveal reveal = planner.planPotionReveal();
@@ -291,5 +275,3 @@ class CauldronQuest {
     handleRoll(actor, action);
   }
 }
-
-class Planner {}

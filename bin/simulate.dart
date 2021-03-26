@@ -1,8 +1,9 @@
 import 'package:cauldron_quest/rules.dart';
 import 'package:cauldron_quest/stats.dart';
 import 'package:stats/stats.dart';
+import 'package:cauldron_quest/planner.dart';
 
-void printCharmPercentages() {
+void printCharmPercentages(Planner planner) {
   int tries = 100000;
   int revealCharm = 0;
   int swapCharm = 0;
@@ -10,7 +11,7 @@ void printCharmPercentages() {
   for (int x = 0; x < tries; x++) {
     if (tryRevealCharm()) revealCharm += 1;
     if (trySwapCharm()) swapCharm += 1;
-    if (trySuperPowerCharm()) superPowerCharm += 1;
+    if (trySuperPowerCharm(planner)) superPowerCharm += 1;
   }
   String toPercent(int value) {
     double percent = value / tries * 100;
@@ -28,12 +29,19 @@ void printAggregateStatistics(List<GameStats> gameStats) {
     print(label + ": " + stats.withPrecision(3).toString());
   }
 
+  // Mean game length is expected to be 42 turns.  7 success are needed (r) and
+  // each success has a 1/6th chance (p), so the mean of the negative binomial
+  // distribution = r / p = 7 * 6 = 42.
+  // https://stattrek.com/probability-distributions/negative-binomial.aspx
   printStats("Turns until blocked", gameStats.map((stats) => stats.turnCount));
+  // Magic roll is 1/3 chance.  1/3 * 42 = 14.
   printStats("Magics rolled", gameStats.map((stats) => stats.magicCount));
   printStats(
       "Potions revealed", gameStats.map((stats) => stats.potionsRevealed));
+  // Potion move roll is 1/3 chance.  1/3 * 42 = 14.
   printStats(
       "Potion move rolled", gameStats.map((stats) => stats.potionMoveCount));
+  // Wizard move roll is 1/6 chance.  1/6 * 42 = 7.
   printStats(
       "Wizard move rolled", gameStats.map((stats) => stats.wizardMoveCount));
   printStats("Potion spaces moved",
@@ -55,7 +63,7 @@ void printAggregateStatistics(List<GameStats> gameStats) {
 
 void main() {
   print("Charm % chance of success:");
-  printCharmPercentages();
+  printCharmPercentages(Planner());
 
   int tries = 10000;
   print("\nSimulating $tries games:");
