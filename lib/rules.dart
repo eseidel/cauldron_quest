@@ -41,46 +41,162 @@ final Die<Action> actionDie = Die<Action>([
   Action.moveFour,
 ]);
 
-class Bottle {
-  // TODO(eseidel): Make blockers an enum?
+class Token {
+  Space? _location;
+
+  // Intentionally no setter.
+  Space? get location => _location;
+
+  void moveTo(Space newLocation) {
+    Space? oldLocation = location;
+    if (oldLocation != null) {
+      oldLocation.tokens.remove(this);
+    }
+    _location = newLocation;
+    newLocation.tokens.add(this);
+  }
+}
+
+class Bottle extends Token {
   final int ingredient;
   bool visible = false;
 
-  // 0-6 are normal paths, 7 is the wizard's path.
-  int? path;
-  // 0-indexed:
-// 10 slots, start on 0, wizard path crosses 4, blocker on 7.
-  int? pathOffset;
-
   Bottle(this.ingredient);
+}
+
+class Blocker extends Token {}
+
+class Wizard extends Blocker {}
+
+bool superCharmWouldHelp(Bottle bottle) {
+  // When would you ever choose a supercharm?
+  // When the path to get the bottle is longer than X?
+  // When the chance of winning w/o the supercharm is < 37.7%?
+  // If the chance is 37.7% and you can move 6, then you're expectd move is 2.26
+  return false;
+}
+
+class Space {
+  List<Token> tokens = [];
+  bool onWizardPath;
+  Space? wizardForward;
+
+  Space({Token? initialToken, this.onWizardPath = false}) {
+    if (initialToken != null) {
+      tokens.add(initialToken);
+    }
+  }
+
+  bool isBlocked() => tokens.any((token) => token is Blocker);
+  void addBlocker() => tokens.add(Blocker());
+  void removeBlocker() => tokens.removeWhere((token) => token is Blocker);
+
+  void connectTo(Space next, {bool setWizardForward = false}) {
+    adjacentSpaces.add(next);
+    next.adjacentSpaces.add(this);
+    if (setWizardForward) {
+      wizardForward = next;
+    }
+  }
+
+  int distanceToGoal = -1;
+  int unblockedDistanceToGoal = -1;
+
+  List<Space> adjacentSpaces = [];
 }
 
 class Board {
   static int ingredientCount = 6;
   static int pathCount = 6;
   static int pathLength = 10;
-  static int wizardPathLength = 12;
 
   List<int>? winningIngredients;
-  List<bool> _pathIsBlocked = List.filled(6, false);
-  int wizardLocation = 0;
-  // Wizard path has 12 locations, 6 of which are on potion paths.
+
+  late Wizard wizard;
+  late Space cauldron;
+  late List<Space> startSpaces;
+  late List<Space> wizardPath;
+  late List<Space> blockerSpaces;
 
   bool haveUsedSpellBreaker = false;
 
   Board() {
+    buildBoardGraph();
+  }
+
+  List<Space> connectPath({
+    required Space from,
+    required Space to,
+    required int spacesBetween,
+    bool onWizardPath = false,
+  }) {
+    List<Space> path = [from];
+    Space previous = from;
+    for (int i = 0; i < spacesBetween; i++) {
+      Space next = Space(onWizardPath: onWizardPath);
+      previous.connectTo(next, setWizardForward: onWizardPath);
+      previous = next;
+      path.add(next);
+    }
+    previous.connectTo(to, setWizardForward: onWizardPath);
+    if (from != to) path.add(to);
+    return path;
+  }
+
+  void buildBoardGraph() {
+    final int wizardPathLength = 12;
+
     var shuffledIngredients =
         List.generate(ingredientCount, (index) => Bottle(index))..shuffle();
-    for (int i = 0; i < pathCount; i++) {
-      shuffledIngredients[i].path = i;
-      shuffledIngredients[i].pathOffset = 0;
+
+    cauldron = Space();
+    startSpaces = shuffledIngredients
+        .map((bottle) => Space(initialToken: bottle))
+        .toList();
+    var wizardStart = Space(onWizardPath: true);
+    wizardPath = connectPath(
+      from: wizardStart,
+      to: wizardStart,
+      spacesBetween: wizardPathLength - 1,
+      onWizardPath: true,
+    );
+    blockerSpaces = List.generate(6, (_) => Space());
+
+    for (int i = 0; i < wizardPath.length; i++) {
+      Space wizardSpace = wizardPath[i];
+      if (i % 2 == 1) {
+        int pathIndex = i ~/ 2;
+        connectPath(
+            from: startSpaces[pathIndex], to: wizardSpace, spacesBetween: 3);
+        connectPath(
+            from: wizardSpace, to: blockerSpaces[pathIndex], spacesBetween: 2);
+        connectPath(
+            from: blockerSpaces[pathIndex], to: cauldron, spacesBetween: 2);
+      }
+    }
+
+    wizard = Wizard();
+    wizard.moveTo(wizardStart);
+  }
+
+  void _moveBottlesBackToStart(Space location) {
+    assert(location.onWizardPath);
+    for (Token token in location.tokens) {
+      if (token is Bottle) {
+        location.tokens.remove(token);
+        // TODO(eseidel): Should be nearest start location.
+        Space startLocation =
+            startSpaces.firstWhere((space) => space.tokens.isEmpty);
+        startLocation.tokens.add(token);
+      }
     }
   }
 
   void moveWizardOneSpace() {
-    int newLocation = (wizardLocation + 1) % wizardPathLength;
+    Space newLocation = wizard.location!.wizardForward!;
     // if newLocation has a potion, move the potion to the nearest start location.
-    wizardLocation = newLocation;
+    _moveBottlesBackToStart(newLocation);
+    wizard.moveTo(newLocation);
   }
 
   void moveWizard(int spacesToMove) {
@@ -88,14 +204,14 @@ class Board {
   }
 
   Iterable<int> collectBlockedPaths() sync* {
-    for (int i = 0; i < _pathIsBlocked.length; i++) {
-      if (pathIsBlocked(i)) yield i;
+    for (int i = 0; i < blockerSpaces.length; i++) {
+      if (blockerSpaces[i].isBlocked()) yield i;
     }
   }
 
   Iterable<int> collectUnblockedPaths() sync* {
-    for (int i = 0; i < _pathIsBlocked.length; i++) {
-      if (!pathIsBlocked(i)) yield i;
+    for (int i = 0; i < blockerSpaces.length; i++) {
+      if (!blockerSpaces[i].isBlocked()) yield i;
     }
   }
 
@@ -110,16 +226,16 @@ class Board {
   // Mostly for testing.
   void blockPath(int path) {
     assert(!pathIsBlocked(path));
-    _pathIsBlocked[path] = true;
+    blockerSpaces[path].addBlocker();
   }
 
-  bool pathIsBlocked(int path) => _pathIsBlocked[path];
+  bool pathIsBlocked(int path) => blockerSpaces[path].isBlocked();
 
   void unblockWithSpellBreaker(int path) {
     assert(!haveUsedSpellBreaker);
     assert(pathIsBlocked(path));
     haveUsedSpellBreaker = true;
-    _pathIsBlocked[path] = false;
+    blockerSpaces[path].removeBlocker();
   }
 }
 

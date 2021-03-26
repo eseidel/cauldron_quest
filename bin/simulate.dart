@@ -34,16 +34,16 @@ void printAggregateStatistics(List<GameStats> gameStats) {
   // distribution = r / p = 7 * 6 = 42.
   // https://stattrek.com/probability-distributions/negative-binomial.aspx
   printStats("Turns until blocked", gameStats.map((stats) => stats.turnCount));
-  // Magic roll is 1/3 chance.  1/3 * 42 = 14.
-  printStats("Magics rolled", gameStats.map((stats) => stats.magicCount));
-  printStats(
-      "Potions revealed", gameStats.map((stats) => stats.potionsRevealed));
   // Potion move roll is 1/3 chance.  1/3 * 42 = 14.
   printStats(
       "Potion move rolled", gameStats.map((stats) => stats.potionMoveCount));
   // Wizard move roll is 1/6 chance.  1/6 * 42 = 7.
   printStats(
       "Wizard move rolled", gameStats.map((stats) => stats.wizardMoveCount));
+  // Magic roll is 1/3 chance.  1/3 * 42 = 14.
+  printStats("Magics rolled", gameStats.map((stats) => stats.magicCount));
+  printStats(
+      "Potions revealed", gameStats.map((stats) => stats.potionsRevealed));
   printStats("Potion spaces moved",
       gameStats.map((stats) => stats.potionMoveDistance));
   printStats("Wizard spaces moved",
