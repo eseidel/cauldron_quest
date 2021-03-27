@@ -159,6 +159,7 @@ class Board {
   late List<Space> startSpaces;
   late List<Space> wizardPath;
   late List<Space> blockerSpaces;
+  late List<int> neededIngredients;
 
   bool haveUsedSpellBreaker = false;
 
@@ -217,6 +218,10 @@ class Board {
 
   void placePieces() {
     const int ingredientCount = 6;
+
+    List<int> ingredients = List.generate(ingredientCount, (index) => index);
+    ingredients.shuffle();
+    neededIngredients = ingredients.take(3).toList();
 
     bottles = List.generate(ingredientCount, (index) => Bottle(index));
     bottles.shuffle();
@@ -421,11 +426,8 @@ class CauldronQuest {
   final Board board = Board();
   final Planner planner = Planner();
 
-  static int blocksUntilLoss = 7; // 6 paths, plus the one removal token.
-
-  // TODO(eseidel): This should use board.unblockedPathCount once
-  // we know how to use the spellbreaker token.
-  bool get isComplete => stats.blockCount >= blocksUntilLoss;
+  bool isComplete = false;
+  bool wizardWon = false;
 
   void handleRoll(Actor actor, Action action) {
     stats.turnCount++;
@@ -490,10 +492,36 @@ class CauldronQuest {
     reveal.bottle.isRevealed = true;
   }
 
+  void checkForWin() {
+    if (board.blockerSpaces.every((space) => space.isBlocked())) {
+      isComplete = true;
+      wizardWon = true;
+      return;
+    }
+    if (board.cauldron.tokens.length < 2) {
+      return;
+    }
+    List<Bottle> bottles = board.cauldron.tokens as List<Bottle>;
+    Set<int> completedIngredients =
+        bottles.map((bottle) => bottle.ingredient).toSet();
+    Set<int> intersection =
+        completedIngredients.intersection(Set.from(board.neededIngredients));
+    if (intersection.length == 3) {
+      isComplete = true;
+      wizardWon = false;
+      stats.playerWon = true;
+    }
+  }
+
   void takeTurn() {
+    assert(!isComplete);
     Actor actor = actorDie.roll();
     Action action = actionDie.roll();
     handleRoll(actor, action);
+    checkForWin();
+    if (isComplete) {
+      return;
+    }
     // TODO: Not sure this belongs here.
     board.updateDistances();
   }

@@ -8,6 +8,7 @@ class GameStats {
   int wizardMoveDistance = 0;
   int potionsRevealed = 0;
   int potionsSwapped = 0;
+  bool playerWon = false;
 
   bool get couldHaveWon => potionsRevealed > 3 && potionMoveDistance > 30;
 }

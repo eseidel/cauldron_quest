@@ -54,11 +54,13 @@ void printAggregateStatistics(List<GameStats> gameStats) {
     return percent.toStringAsFixed(1) + "%";
   }
 
-  int possibleWinCount = 0;
-  gameStats.forEach((GameStats stats) {
-    if (stats.couldHaveWon) possibleWinCount++;
-  });
-  print("${toPercent(possibleWinCount)} max wins, N=${gameStats.length}");
+  int actualWins =
+      gameStats.fold(0, (int sum, stats) => sum + (stats.playerWon ? 1 : 0));
+  print("${toPercent(actualWins)} max wins, N=${gameStats.length}");
+
+  int possibleWins =
+      gameStats.fold(0, (int sum, stats) => sum + (stats.couldHaveWon ? 1 : 0));
+  print("${toPercent(possibleWins)} max wins, N=${gameStats.length}");
 }
 
 void main() {
