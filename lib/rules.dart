@@ -76,6 +76,21 @@ bool superCharmWouldHelp(Bottle bottle) {
   return false;
 }
 
+class VersionedMinimumDistance {
+  int distance = 0;
+  int version = 0;
+
+  bool update(VersionedMinimumDistance other) {
+    bool dirty = other.version != version;
+    if (dirty || distance > other.distance + 1) {
+      version = other.version;
+      distance = other.distance + 1;
+      return true;
+    }
+    return false;
+  }
+}
+
 class Space {
   List<Token> tokens = [];
   bool onWizardPath;
@@ -99,19 +114,39 @@ class Space {
     }
   }
 
-  int distanceToGoal = -1;
-  int unblockedDistanceToGoal = -1;
+  bool updateDistancesFromNeighbor(Space neighbor) {
+    bool dirty = false;
+    // Can't have a distanceToGoal from a blocked neighbor, or from one
+    // which is only partially updated (has an old version of distanceToGoal).
+    if (!neighbor.isBlocked() &&
+        neighbor._distanceToGoal.version ==
+            neighbor._unblockedDistanceToGoal.version) {
+      dirty |= _distanceToGoal.update(neighbor._distanceToGoal);
+    }
+    dirty |= _unblockedDistanceToGoal.update(neighbor._unblockedDistanceToGoal);
+    return dirty;
+  }
+
+  void setDistanceVersion(int version) {
+    _distanceToGoal.version = version;
+    _unblockedDistanceToGoal.version = version;
+  }
+
+  VersionedMinimumDistance _distanceToGoal = VersionedMinimumDistance();
+  VersionedMinimumDistance _unblockedDistanceToGoal =
+      VersionedMinimumDistance();
+
+  int get distanceToGoal =>
+      _distanceToGoal.version == _unblockedDistanceToGoal.version
+          ? _distanceToGoal.distance
+          : -1;
+  int get unblockedDistanceToGoal => _unblockedDistanceToGoal.distance;
 
   List<Space> adjacentSpaces = [];
 }
 
 class Board {
-  static int ingredientCount = 6;
-  static int pathCount = 6;
-  static int pathLength = 10;
-
-  List<int>? winningIngredients;
-
+  int distanceVersion = 0;
   late Wizard wizard;
   late Space cauldron;
   late List<Space> startSpaces;
@@ -122,6 +157,7 @@ class Board {
 
   Board() {
     buildBoardGraph();
+    placePieces();
   }
 
   List<Space> connectPath({
@@ -144,15 +180,11 @@ class Board {
   }
 
   void buildBoardGraph() {
-    final int wizardPathLength = 12;
-
-    var shuffledIngredients =
-        List.generate(ingredientCount, (index) => Bottle(index))..shuffle();
+    const int wizardPathLength = 12;
+    const int startSpacesCount = 6;
 
     cauldron = Space();
-    startSpaces = shuffledIngredients
-        .map((bottle) => Space(initialToken: bottle))
-        .toList();
+    startSpaces = List.generate(startSpacesCount, (_) => Space()).toList();
     var wizardStart = Space(onWizardPath: true);
     wizardPath = connectPath(
       from: wizardStart,
@@ -160,7 +192,7 @@ class Board {
       spacesBetween: wizardPathLength - 1,
       onWizardPath: true,
     );
-    blockerSpaces = List.generate(6, (_) => Space());
+    blockerSpaces = List.generate(startSpacesCount, (_) => Space());
 
     for (int i = 0; i < wizardPath.length; i++) {
       Space wizardSpace = wizardPath[i];
@@ -174,9 +206,52 @@ class Board {
             from: blockerSpaces[pathIndex], to: cauldron, spacesBetween: 2);
       }
     }
+  }
 
+  void placePieces() {
+    const int ingredientCount = 6;
+
+    var shuffledIngredients =
+        List.generate(ingredientCount, (index) => Bottle(index))..shuffle();
+    for (Space space in startSpaces) {
+      Bottle bottle = shuffledIngredients.removeLast();
+      bottle.moveTo(space);
+    }
     wizard = Wizard();
-    wizard.moveTo(wizardStart);
+    wizard.moveTo(wizardPath.first);
+  }
+
+  static void updateDistancesFromGoal(Space goal, int version) {
+    goal.setDistanceVersion(version);
+    // Start at cauldron, walk all locations setting distance.
+    List<Space> toVisit = <Space>[goal];
+    while (toVisit.isNotEmpty) {
+      Space current = toVisit.removeLast();
+      for (Space neighbor in current.adjacentSpaces) {
+        if (neighbor.updateDistancesFromNeighbor(current)) {
+          toVisit.add(neighbor);
+        }
+      }
+    }
+  }
+
+  void updateDistances() {
+    distanceVersion += 1;
+    updateDistancesFromGoal(cauldron, distanceVersion);
+  }
+
+  Iterable<Space> shortestPathToGoal(Space start,
+      {bool ignoreBlocks = false}) sync* {
+    var distance = ignoreBlocks
+        ? (Space space) => space.unblockedDistanceToGoal
+        : (Space space) => space.distanceToGoal;
+    Space current = start;
+
+    while (distance(current) > 0) {
+      yield current;
+      current = current.adjacentSpaces.reduce((cheapest, space) =>
+          distance(space) < distance(cheapest) ? space : cheapest);
+    }
   }
 
   void _moveBottlesBackToStart(Space location) {

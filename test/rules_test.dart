@@ -17,6 +17,40 @@ void main() {
     expect(board.wizardPath.last.wizardForward, board.wizardPath.first);
   });
 
+  test('distance calculations', () {
+    Board board = Board();
+    board.updateDistances();
+    expect(board.startSpaces.first.unblockedDistanceToGoal, 10);
+    expect(board.startSpaces.first.distanceToGoal, 10);
+    board.blockPath(0);
+    board.updateDistances();
+    expect(board.startSpaces.first.unblockedDistanceToGoal, 10);
+    expect(board.startSpaces.first.distanceToGoal, 12);
+  });
+
+  test('simple board distance calculations', () {
+    var start = Space();
+    var blocked = Space();
+    var end = Space();
+    var side1 = Space();
+    var side2 = Space();
+
+    start.connectTo(blocked);
+    blocked.connectTo(end);
+    start.connectTo(side1);
+    side1.connectTo(side2);
+    side2.connectTo(end);
+
+    Board.updateDistancesFromGoal(end, 1);
+
+    expect(start.distanceToGoal, 2);
+    expect(start.unblockedDistanceToGoal, 2);
+    blocked.addBlocker();
+    Board.updateDistancesFromGoal(end, 2);
+    expect(start.unblockedDistanceToGoal, 2);
+    expect(start.distanceToGoal, 3);
+  });
+
   test('path blocking', () {
     Board board = Board();
     expect(board.unblockedPathCount, 6);
