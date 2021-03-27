@@ -23,6 +23,12 @@ enum Action {
   moveFour,
 }
 
+enum Charm {
+  revealCharm,
+  swapCharm,
+  superPowerCharm,
+}
+
 final Die<int> numberDie = Die<int>([1, 2, 3, 4, 5, 6]);
 final Die<Actor> actorDie = Die<Actor>([
   Actor.wizard,
@@ -59,7 +65,7 @@ class Token {
 
 class Bottle extends Token {
   final int ingredient;
-  bool visible = false;
+  bool isRevealed = false;
 
   Bottle(this.ingredient);
 }
@@ -148,6 +154,7 @@ class Space {
 class Board {
   int distanceVersion = 0;
   late Wizard wizard;
+  late List<Bottle> bottles;
   late Space cauldron;
   late List<Space> startSpaces;
   late List<Space> wizardPath;
@@ -211,12 +218,12 @@ class Board {
   void placePieces() {
     const int ingredientCount = 6;
 
-    var shuffledIngredients =
-        List.generate(ingredientCount, (index) => Bottle(index))..shuffle();
-    for (Space space in startSpaces) {
-      Bottle bottle = shuffledIngredients.removeLast();
-      bottle.moveTo(space);
+    bottles = List.generate(ingredientCount, (index) => Bottle(index));
+    bottles.shuffle();
+    for (int i = 0; i < bottles.length; i++) {
+      bottles[i].moveTo(startSpaces[i]);
     }
+
     wizard = Wizard();
     wizard.moveTo(wizardPath.first);
   }
@@ -400,9 +407,11 @@ bool trySuperPowerCharm(Planner planner) {
   });
 }
 
-int moveCount(Action action) {
+// TODO: Does this belong on a Rules object?
+int maxSpacesMoved(Action action) {
   if (action == Action.moveThree) return 3;
   if (action == Action.moveFour) return 4;
+  if (action == Action.magic) return 6;
   assert(false);
   return 0;
 }
@@ -430,39 +439,62 @@ class CauldronQuest {
     }
     if (actor == Actor.potion && action == Action.magic) {
       stats.magicCount++;
-      // Plan which magic to do.
-      // Reveal if still to reveal.
-      // Swap if swapping reduces total distance to win.
-      // Otherwise supercharm?
-
-      if (tryRevealCharm()) {
-        stats.potionsRevealed++;
-        // Reveal reveal = planner.planPotionReveal();
-        // executeReveal(reveal);
+      Charm charm = planner.planCharm(board);
+      switch (charm) {
+        case Charm.revealCharm:
+          if (tryRevealCharm()) {
+            stats.potionsRevealed++;
+            PlannedReveal reveal = planner.planPotionReveal(board);
+            handleReveal(reveal);
+          }
+          break;
+        case Charm.swapCharm:
+          if (trySwapCharm()) {
+            stats.potionsSwapped++;
+          }
+          break;
+        case Charm.superPowerCharm:
+          if (trySuperPowerCharm(planner)) {
+            PlannedMove move = planner.pickBottleToSuperCharm(board);
+            handleBottleMove(action, move);
+          }
+          break;
       }
+
       return;
     }
     if (actor == Actor.wizard) {
       stats.wizardMoveCount++;
-      int spaces = moveCount(action);
+      int spaces = maxSpacesMoved(action);
       stats.wizardMoveDistance += spaces;
       board.moveWizard(spaces);
       return;
     }
     if (actor == Actor.potion) {
       stats.potionMoveCount++;
-      int spaces = moveCount(action);
-      stats.potionMoveDistance += spaces;
-      // PotionMove move = planner.planPotionMove(spaces);
-      // executeMove(move);
+      PlannedMove move = planner.planBottleMove(board, action);
+      handleBottleMove(action, move);
       return;
     }
     assert(false);
+  }
+
+  void handleBottleMove(Action action, PlannedMove move) {
+    // TODO: Should not trust anything from PlannedMove in this function!
+    assert(move.possibleDistance < maxSpacesMoved(action));
+    stats.potionMoveDistance += move.possibleDistance;
+  }
+
+  void handleReveal(PlannedReveal reveal) {
+    assert(!reveal.bottle.isRevealed);
+    reveal.bottle.isRevealed = true;
   }
 
   void takeTurn() {
     Actor actor = actorDie.roll();
     Action action = actionDie.roll();
     handleRoll(actor, action);
+    // TODO: Not sure this belongs here.
+    board.updateDistances();
   }
 }
