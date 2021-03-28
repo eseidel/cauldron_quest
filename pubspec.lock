@@ -8,6 +8,15 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "19.0.0"
+  a_star:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: HEAD
+      resolved-ref: b912b4cc7e1408ed747995b9f0dcc58d2737695d
+      url: "git@github.com:sethladd/dart-a-star.git"
+    source: git
+    version: "0.5.0-dev"
   analyzer:
     dependency: transitive
     description:
@@ -133,7 +142,7 @@ packages:
       name: logging
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.0.0"
+    version: "1.0.1"
   matcher:
     dependency: transitive
     description:

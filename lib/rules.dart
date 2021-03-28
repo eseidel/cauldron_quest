@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'stats.dart';
 import 'planner.dart';
+import 'astar.dart';
 
 var random = Random();
 
@@ -120,6 +121,8 @@ class Space {
     }
   }
 
+  bool adjacentTo(Space other) => adjacentSpaces.contains(other);
+
   bool updateDistancesFromNeighbor(Space neighbor) {
     bool dirty = false;
     // Can't have a distanceToGoal from a blocked neighbor, or from one
@@ -147,6 +150,8 @@ class Space {
           ? _distanceToGoal.distance
           : -1;
   int get unblockedDistanceToGoal => _unblockedDistanceToGoal.distance;
+
+  AStarNode? aStarNode;
 
   List<Space> adjacentSpaces = [];
 }
@@ -419,6 +424,28 @@ int maxSpacesMoved(Action action) {
   if (action == Action.magic) return 6;
   assert(false);
   return 0;
+}
+
+bool isLegalMove(Bottle bottle, Space toSpace, Action action) {
+  // It's never legal to move onto a blocker.
+  if (toSpace.isBlocked()) {
+    return false;
+  }
+  Space? fromSpace = bottle.location;
+  if (fromSpace == null) {
+    // This does not handle placing pieces.
+    return false;
+  }
+  if (fromSpace == toSpace) {
+    return true;
+  }
+  int maxSpaces = maxSpacesMoved(action);
+  var path = shortestPath(
+      from: fromSpace, to: toSpace, ignoreBlockers: action == Action.magic);
+  if (path == null) {
+    return false;
+  }
+  return path.length < maxSpaces;
 }
 
 class CauldronQuest {
