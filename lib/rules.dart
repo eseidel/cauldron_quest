@@ -370,6 +370,23 @@ class Board {
     blockerSpaces[path].removeBlocker();
   }
 
+  int revealedRequiredIngredientCount() {
+    Set<int> revealedIngredients =
+        bottles.map((bottle) => bottle.ingredient).toSet();
+    Set<int> intersection =
+        revealedIngredients.intersection(Set.from(neededIngredients));
+    return intersection.length;
+  }
+
+  int completedRequiredIngredientCount() {
+    var tokens = cauldron.tokens;
+    Set<int> completedIngredients =
+        tokens.map((token) => (token as Bottle).ingredient).toSet();
+    Set<int> intersection =
+        completedIngredients.intersection(Set.from(neededIngredients));
+    return intersection.length;
+  }
+
   String debugString() {
     String debug = cauldron.debugString() + "\n";
     for (int i = 0; i < startSpaces.length; i++) {
@@ -594,12 +611,7 @@ class CauldronQuest {
     if (board.cauldron.tokens.length < 2) {
       return;
     }
-    var tokens = board.cauldron.tokens;
-    Set<int> completedIngredients =
-        tokens.map((token) => (token as Bottle).ingredient).toSet();
-    Set<int> intersection =
-        completedIngredients.intersection(Set.from(board.neededIngredients));
-    if (intersection.length == 3) {
+    if (board.completedRequiredIngredientCount() == 3) {
       isComplete = true;
       wizardWon = false;
       stats.playerWon = true;

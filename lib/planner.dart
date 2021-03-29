@@ -49,11 +49,12 @@ class Planner {
   }
 
   Charm planCharm(Board board) {
-    // Plan which magic to do.
-    // Reveal if still to reveal.
+    // Can't yet check < 3, triggers crash.
+    // if (board.revealedRequiredIngredientCount() < 3) {
     if (board.bottles.any((bottle) => !bottle.isRevealed)) {
       return Charm.revealCharm;
     }
+    // }
     // Swap if swapping reduces total distance to win.
     // Otherwise supercharm?
     return Charm.superPowerCharm;
