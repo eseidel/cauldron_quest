@@ -40,4 +40,51 @@ void main() {
         shortestPath(from: plan.bottle.location!, to: plan.toSpace)!.length, 4);
     expect(isLegalMove(plan.bottle, plan.toSpace, plan.action), true);
   });
+
+  test('planCharm reveal until ingredients found', () {
+    Planner planner = Planner();
+    Board board = Board();
+    var neededBottles = board.bottles
+        .where((bottle) => board.neededIngredients.contains(bottle.ingredient))
+        .toList();
+    expect(planner.planCharm(board).charm, Charm.revealCharm);
+    neededBottles[0].isRevealed = true; // ignoring plan.
+    expect(board.revealedRequiredIngredientCount(), 1);
+    expect(planner.planCharm(board).charm, Charm.revealCharm);
+    neededBottles[1].isRevealed = true; // ignoring plan.
+    expect(board.revealedRequiredIngredientCount(), 2);
+    expect(planner.planCharm(board).charm, Charm.revealCharm);
+    neededBottles[2].isRevealed = true; // ignoring plan.
+    expect(board.revealedRequiredIngredientCount(), 3);
+    // Super Power Charm is the default (also no swaps would help here).
+    expect(planner.planCharm(board).charm, Charm.superPowerCharm);
+  });
+
+  test('planCharm swap when helpful', () {
+    Planner planner = Planner();
+    Board board = Board();
+    bool bottleNeeded(Bottle bottle) =>
+        board.neededIngredients.contains(bottle.ingredient);
+    var neededBottles = board.bottles.where(bottleNeeded).toList();
+
+    // planCharm will always reveal until all 3 needed are revealed.
+    expect(planner.planCharm(board).charm, Charm.revealCharm);
+    neededBottles[0].isRevealed = true;
+    neededBottles[1].isRevealed = true;
+    neededBottles[2].isRevealed = true;
+
+    // Move an unrevealed bottle closer to goal.
+    var unneededBottle =
+        board.bottles.firstWhere((bottle) => !bottleNeeded(bottle));
+    var path =
+        shortestPath(from: unneededBottle.location!, to: board.cauldron)!;
+    // Don't bother swapping for less than a 3 space gain:
+    var toSpace = path[3]; // 0 = start space, 3 moves 3 from start.
+    unneededBottle.moveTo(toSpace);
+    var plan = planner.planCharm(board);
+    expect(plan.charm, Charm.swapCharm);
+    // Which is revealed vs not is somewhat an implementation detail:
+    expect(plan.bottle, unneededBottle);
+    expect(plan.swapWith!.isRevealed, true);
+  });
 }

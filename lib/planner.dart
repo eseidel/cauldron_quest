@@ -20,9 +20,16 @@ class PlannedMove {
   });
 }
 
-class PlannedReveal {
+class PlannedCharm {
+  final Charm charm;
   final Bottle bottle;
-  PlannedReveal({required this.bottle});
+  final Bottle? swapWith;
+  final PlannedMove? superCharmMove;
+  PlannedCharm(
+      {required this.charm,
+      required this.bottle,
+      this.swapWith,
+      this.superCharmMove});
 }
 
 class Planner {
@@ -48,13 +55,49 @@ class Planner {
     return Reroll.none();
   }
 
-  Charm planCharm(Board board) {
+  PlannedCharm planCharm(Board board) {
+    // Reveal if we haven't found all 3 yet.
     if (board.revealedRequiredIngredientCount() < 3) {
-      return Charm.revealCharm;
+      Bottle bottle = board.bottles.firstWhere((bottle) => !bottle.isRevealed);
+      // TODO: Could plan to reveal a bottle based on proximity to cauldron?
+      return PlannedCharm(charm: Charm.revealCharm, bottle: bottle);
     }
-    // Swap if swapping reduces total distance to win.
-    // Otherwise supercharm?
-    return Charm.superPowerCharm;
+
+    // Otherwise attempt a swap if benificial?
+    int revealedCount = board.bottles
+        .fold(0, (count, bottle) => count + (bottle.isRevealed ? 1 : 0));
+    if (revealedCount < board.bottles.length) {
+      // Swap if swapping reduces total distance to win.
+      Bottle furthestRevealed = board.bottles
+          .where((bottle) => bottle.isRevealed)
+          .reduce((a, b) =>
+              a.location!.distanceToGoal > b.location!.distanceToGoal ? a : b);
+      Bottle closestHidden = board.bottles
+          .where((bottle) => !bottle.isRevealed)
+          .reduce((a, b) =>
+              a.location!.distanceToGoal < b.location!.distanceToGoal ? a : b);
+
+      // SuperCharm chance is 37.7% and moves 6 so EV is 2.26.
+      const int minimumGainWorthSwapping = 3;
+
+      if (furthestRevealed.location!.distanceToGoal >=
+          closestHidden.location!.distanceToGoal + minimumGainWorthSwapping) {
+        return PlannedCharm(
+            charm: Charm.swapCharm,
+            bottle: closestHidden,
+            swapWith: furthestRevealed);
+      }
+    }
+
+    // Are there situations where SuperCharm should be higher priority?
+    // When the path to get the bottle is longer than X?
+    // When the chance of winning w/o the supercharm is < 37.7%?
+    // When a bottle is in the way of the wizard (going to get reset)?
+    PlannedMove superCharmMove = pickBottleToSuperCharm(board);
+    return PlannedCharm(
+        charm: Charm.superPowerCharm,
+        bottle: superCharmMove.bottle,
+        superCharmMove: superCharmMove);
   }
 
   PlannedMove pickBottleToSuperCharm(Board board) {
@@ -81,12 +124,6 @@ class Planner {
       ));
     }
     return possibleMoves.first;
-  }
-
-  PlannedReveal planPotionReveal(Board board) {
-    Bottle bottle = board.bottles.firstWhere((bottle) => !bottle.isRevealed);
-    // TODO: Could plan to reveal a bottle based on proximity to cauldron?
-    return PlannedReveal(bottle: bottle);
   }
 
   PlannedMove planBottleMove(Board board, Action action) {

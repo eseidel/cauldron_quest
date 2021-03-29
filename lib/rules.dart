@@ -83,14 +83,6 @@ class Wizard extends Blocker {
   String debugString() => "W";
 }
 
-bool superCharmWouldHelp(Bottle bottle) {
-  // When would you ever choose a supercharm?
-  // When the path to get the bottle is longer than X?
-  // When the chance of winning w/o the supercharm is < 37.7%?
-  // If the chance is 37.7% and you can move 6, then you're expectd move is 2.26
-  return false;
-}
-
 class VersionedMinimumDistance {
   int distance = 0;
   int version = 0;
@@ -545,33 +537,8 @@ class CauldronQuest {
     }
     if (actor == Actor.potion && action == Action.magic) {
       stats.magicCount++;
-      bool magicSucess = false;
-      Charm charm = planner.planCharm(board);
-      switch (charm) {
-        case Charm.revealCharm:
-          if (magicSucess = tryRevealCharm()) {
-            stats.potionsRevealed++;
-            PlannedReveal reveal = planner.planPotionReveal(board);
-            handleReveal(reveal);
-          }
-          break;
-        case Charm.swapCharm:
-          if (magicSucess = trySwapCharm()) {
-            stats.potionsSwapped++;
-          }
-          break;
-        case Charm.superPowerCharm:
-          if (magicSucess = trySuperPowerCharm(planner)) {
-            PlannedMove move = planner.pickBottleToSuperCharm(board);
-            stats.supercharmCount++;
-            handleBottleMove(action, move);
-          }
-          break;
-      }
-      if (!magicSucess) {
-        stats.magicFailures++;
-      }
-
+      PlannedCharm plan = planner.planCharm(board);
+      handleCharmRole(action, plan);
       return;
     }
     if (actor == Actor.wizard) {
@@ -590,17 +557,47 @@ class CauldronQuest {
     assert(false);
   }
 
+  void handleCharmRole(Action action, PlannedCharm plan) {
+    bool magicSucess = false;
+    switch (plan.charm) {
+      case Charm.revealCharm:
+        if (magicSucess = tryRevealCharm()) {
+          stats.potionsRevealed++;
+          assert(!plan.bottle.isRevealed);
+          plan.bottle.isRevealed = true;
+        }
+        break;
+      case Charm.swapCharm:
+        if (magicSucess = trySwapCharm()) {
+          stats.potionsSwapped++;
+          handleBottleSwap(plan.bottle, plan.swapWith!);
+        }
+        break;
+      case Charm.superPowerCharm:
+        if (magicSucess = trySuperPowerCharm(planner)) {
+          stats.supercharmCount++;
+          handleBottleMove(action, plan.superCharmMove!);
+        }
+        break;
+    }
+    if (!magicSucess) {
+      stats.magicFailures++;
+    }
+  }
+
+  void handleBottleSwap(Bottle a, Bottle b) {
+    Space newBSpace = a.location!;
+    Space newASpace = b.location!;
+    a.moveTo(newASpace);
+    b.moveTo(newBSpace);
+  }
+
   void handleBottleMove(Action action, PlannedMove plan) {
     // TODO: Should not trust anything from PlannedMove in this function!
     assert(plan.possibleDistance <= maxSpacesMoved(action));
     stats.potionMoveDistance += plan.possibleDistance;
     assert(isLegalMove(plan.bottle, plan.toSpace, action));
     plan.bottle.moveTo(plan.toSpace);
-  }
-
-  void handleReveal(PlannedReveal reveal) {
-    assert(!reveal.bottle.isRevealed);
-    reveal.bottle.isRevealed = true;
   }
 
   void checkForWin() {
