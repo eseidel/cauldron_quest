@@ -1,6 +1,7 @@
 import 'package:cauldron_quest/rules.dart';
 import 'package:cauldron_quest/stats.dart';
 import 'package:stats/stats.dart';
+import 'package:timing/timing.dart';
 
 void printAggregateStatistics(List<GameStats> gameStats) {
   void printStats(String label, Iterable<int> values) {
@@ -61,6 +62,8 @@ List<GameStats> simulateGames(int gameCount) {
 void main() {
   const int numberOfGames = 10000;
   print("\nSimulating $numberOfGames games...");
-  var gameStats = simulateGames(numberOfGames);
+  var tracker = SyncTimeTracker();
+  var gameStats = tracker.track(() => simulateGames(numberOfGames));
+  print('Completed: ${tracker.duration}');
   printAggregateStatistics(gameStats);
 }

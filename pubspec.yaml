@@ -9,5 +9,6 @@ dependencies:
   stats: ^2.0.0
   a_star:
     git: git@github.com:sethladd/dart-a-star.git
+  timing: ^1.0.0
 dev_dependencies:
   test: ^1.16.8
