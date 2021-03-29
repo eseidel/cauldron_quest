@@ -380,8 +380,17 @@ class Board {
     return intersection.length;
   }
 
+  // These could be extension methods?
+  // For testing, these do not respect bottle visibility!
+  bool isBottleNeeded(Bottle bottle) =>
+      neededIngredients.contains(bottle.ingredient);
+  List<Bottle> get neededBottles => bottles.where(isBottleNeeded).toList();
+  List<Bottle> get unneededBottles =>
+      bottles.where((bottle) => !isBottleNeeded(bottle)).toList();
+
   String debugString() {
-    String debug = cauldron.debugString() + "\n";
+    String debug =
+        cauldron.debugString() + " " + neededIngredients.join(",") + "\n";
     for (int i = 0; i < startSpaces.length; i++) {
       Space start = startSpaces[i];
       var path = shortestPathToGoal(start, ignoreBlocks: true);

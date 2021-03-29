@@ -128,17 +128,19 @@ class Planner {
 
   PlannedMove planBottleMove(Board board, Action action) {
     int maxDistance = maxSpacesMoved(action);
-    // Move a revealed potion, otherwise move a random non-revealed potion.
+    // Move a needed potion, otherwise move a random non-reveleaed potion.
     Bottle? bottleToMove;
-    List<Bottle> revealedBottles = board.bottles
-        .where(
-            (bottle) => bottle.isRevealed && bottle.location != board.cauldron)
+    List<Bottle> neededBottles = board.bottles
+        .where((bottle) =>
+            bottle.isRevealed &&
+            bottle.location != board.cauldron &&
+            board.neededIngredients.contains(bottle.ingredient))
         .toList();
-    if (revealedBottles.isNotEmpty) {
-      bottleToMove = revealedBottles.first;
+    if (neededBottles.isNotEmpty) {
+      bottleToMove = neededBottles.first;
     } else {
-      bottleToMove = board.bottles
-          .firstWhere((bottle) => bottle.location != board.cauldron);
+      bottleToMove = board.bottles.firstWhere(
+          (bottle) => !bottle.isRevealed && bottle.location != board.cauldron);
     }
     Space fromSpace = bottleToMove.location!;
     // var path = board.shortestPathToGoal(fromSpace).toList();

@@ -41,12 +41,24 @@ void main() {
     expect(isLegalMove(plan.bottle, plan.toSpace, plan.action), true);
   });
 
+  test('planMoveBottle order', () {
+    Planner planner = Planner();
+    Board board = Board();
+
+    var unneededBottle = board.unneededBottles.first;
+    unneededBottle.isRevealed = true;
+    expect(planner.planBottleMove(board, Action.moveThree).bottle,
+        isNot(unneededBottle));
+    var neededBottle = board.neededBottles.first;
+    neededBottle.isRevealed = true;
+    expect(
+        planner.planBottleMove(board, Action.moveThree).bottle, neededBottle);
+  });
+
   test('planCharm reveal until ingredients found', () {
     Planner planner = Planner();
     Board board = Board();
-    var neededBottles = board.bottles
-        .where((bottle) => board.neededIngredients.contains(bottle.ingredient))
-        .toList();
+    var neededBottles = board.neededBottles;
     expect(planner.planCharm(board).charm, Charm.revealCharm);
     neededBottles[0].isRevealed = true; // ignoring plan.
     expect(board.revealedRequiredIngredientCount(), 1);
@@ -63,9 +75,7 @@ void main() {
   test('planCharm swap when helpful', () {
     Planner planner = Planner();
     Board board = Board();
-    bool bottleNeeded(Bottle bottle) =>
-        board.neededIngredients.contains(bottle.ingredient);
-    var neededBottles = board.bottles.where(bottleNeeded).toList();
+    var neededBottles = board.neededBottles;
 
     // planCharm will always reveal until all 3 needed are revealed.
     expect(planner.planCharm(board).charm, Charm.revealCharm);
@@ -74,8 +84,7 @@ void main() {
     neededBottles[2].isRevealed = true;
 
     // Move an unrevealed bottle closer to goal.
-    var unneededBottle =
-        board.bottles.firstWhere((bottle) => !bottleNeeded(bottle));
+    var unneededBottle = board.unneededBottles.first;
     var path =
         shortestPath(from: unneededBottle.location!, to: board.cauldron)!;
     // Don't bother swapping for less than a 3 space gain:
