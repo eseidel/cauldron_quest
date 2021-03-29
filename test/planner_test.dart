@@ -1,3 +1,4 @@
+import 'package:cauldron_quest/astar.dart';
 import 'package:test/test.dart';
 import 'package:cauldron_quest/planner.dart';
 import 'package:cauldron_quest/rules.dart';
@@ -25,5 +26,18 @@ void main() {
     expect(p.planReroll([6, 6, 4]), equals(Reroll.largest()));
     expect(p.planReroll([6, 5, 6]), equals(Reroll.largest()));
     expect(p.planReroll([6, 6, 6]), equals(Reroll.largest(2)));
+  });
+
+  test('planMoveBottle', () {
+    Planner planner = Planner();
+    Board board = Board();
+    var plan = planner.planBottleMove(board, Action.moveThree);
+    expect(plan.action, Action.moveThree);
+    expect(plan.actualDistance, 3);
+    expect(plan.possibleDistance, 3);
+    // shortestPath includes start.
+    expect(
+        shortestPath(from: plan.bottle.location!, to: plan.toSpace)!.length, 4);
+    expect(isLegalMove(plan.bottle, plan.toSpace, plan.action), true);
   });
 }

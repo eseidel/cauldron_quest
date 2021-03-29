@@ -48,7 +48,7 @@ final Die<Action> actionDie = Die<Action>([
   Action.moveFour,
 ]);
 
-class Token {
+abstract class Token {
   Space? _location;
 
   // Intentionally no setter.
@@ -62,6 +62,8 @@ class Token {
     _location = newLocation;
     newLocation.tokens.add(this);
   }
+
+  String debugString();
 }
 
 class Bottle extends Token {
@@ -69,11 +71,17 @@ class Bottle extends Token {
   bool isRevealed = false;
 
   Bottle(this.ingredient);
+
+  String debugString() => "B$ingredient" + (isRevealed ? 'r' : 'h');
 }
 
-class Blocker extends Token {}
+class Blocker extends Token {
+  String debugString() => "X";
+}
 
-class Wizard extends Blocker {}
+class Wizard extends Blocker {
+  String debugString() => "W";
+}
 
 bool superCharmWouldHelp(Bottle bottle) {
   // When would you ever choose a supercharm?
@@ -102,11 +110,13 @@ class Space {
   List<Token> tokens = [];
   bool onWizardPath;
   Space? wizardForward;
+  late String name;
 
-  Space({Token? initialToken, this.onWizardPath = false}) {
+  Space({Token? initialToken, this.onWizardPath = false, String? name}) {
     if (initialToken != null) {
       tokens.add(initialToken);
     }
+    this.name = name ?? "";
   }
 
   bool isBlocked() => tokens.any((token) => token is Blocker);
@@ -154,6 +164,17 @@ class Space {
   AStarNode? aStarNode;
 
   List<Space> adjacentSpaces = [];
+
+  String debugString() {
+    var tokensString = tokens.isEmpty
+        ? ""
+        : " " + tokens.map((token) => token.debugString()).join(' ');
+    return "[$name$tokensString]";
+  }
+}
+
+String stringForPath(Iterable<Space> path) {
+  return path.map((space) => space.debugString()).join(" ");
 }
 
 class Board {
@@ -171,18 +192,20 @@ class Board {
   Board() {
     buildBoardGraph();
     placePieces();
+    updateDistances();
   }
 
-  List<Space> connectPath({
-    required Space from,
-    required Space to,
-    required int spacesBetween,
-    bool onWizardPath = false,
-  }) {
+  List<Space> connectPath(
+      {required Space from,
+      required Space to,
+      required int spacesBetween,
+      bool onWizardPath = false,
+      String generateName(int)?}) {
     List<Space> path = [from];
     Space previous = from;
     for (int i = 0; i < spacesBetween; i++) {
-      Space next = Space(onWizardPath: onWizardPath);
+      String name = generateName == null ? '' : generateName(i);
+      Space next = Space(onWizardPath: onWizardPath, name: name);
       previous.connectTo(next, setWizardForward: onWizardPath);
       previous = next;
       path.add(next);
@@ -196,27 +219,43 @@ class Board {
     const int wizardPathLength = 12;
     const int startSpacesCount = 6;
 
-    cauldron = Space();
-    startSpaces = List.generate(startSpacesCount, (_) => Space()).toList();
-    var wizardStart = Space(onWizardPath: true);
+    cauldron = Space(name: "goal");
+    startSpaces =
+        List.generate(startSpacesCount, (index) => Space(name: "$index:0"))
+            .toList();
+    var wizardStart = Space(onWizardPath: true, name: "5:0");
     wizardPath = connectPath(
       from: wizardStart,
       to: wizardStart,
       spacesBetween: wizardPathLength - 1,
       onWizardPath: true,
+      generateName: (index) => "w:${index + 1}",
     );
-    blockerSpaces = List.generate(startSpacesCount, (_) => Space());
+    blockerSpaces =
+        List.generate(startSpacesCount, (index) => Space(name: "$index:7"));
 
     for (int i = 0; i < wizardPath.length; i++) {
       Space wizardSpace = wizardPath[i];
       if (i % 2 == 1) {
         int pathIndex = i ~/ 2;
         connectPath(
-            from: startSpaces[pathIndex], to: wizardSpace, spacesBetween: 3);
+          from: startSpaces[pathIndex],
+          to: wizardSpace,
+          spacesBetween: 3,
+          generateName: (index) => "$pathIndex:${1 + index}",
+        );
         connectPath(
-            from: wizardSpace, to: blockerSpaces[pathIndex], spacesBetween: 2);
+          from: wizardSpace,
+          to: blockerSpaces[pathIndex],
+          spacesBetween: 2,
+          generateName: (index) => "$pathIndex:${5 + index}",
+        );
         connectPath(
-            from: blockerSpaces[pathIndex], to: cauldron, spacesBetween: 2);
+          from: blockerSpaces[pathIndex],
+          to: cauldron,
+          spacesBetween: 2,
+          generateName: (index) => "$pathIndex:${8 + index}",
+        );
       }
     }
   }
@@ -273,14 +312,15 @@ class Board {
 
   void _moveBottlesBackToStart(Space location) {
     assert(location.onWizardPath);
-    for (Token token in location.tokens) {
-      if (token is Bottle) {
-        location.tokens.remove(token);
-        // TODO(eseidel): Should be nearest start location.
-        Space startLocation =
-            startSpaces.firstWhere((space) => space.tokens.isEmpty);
-        startLocation.tokens.add(token);
-      }
+    // copy the list (with toList) to avoid modificiation during iteration.
+    var bottlesToRemove =
+        location.tokens.where((token) => token is Bottle).toList();
+
+    for (var bottle in bottlesToRemove) {
+      // TODO(eseidel): Should be nearest start location.
+      Space startLocation =
+          startSpaces.firstWhere((space) => space.tokens.isEmpty);
+      bottle.moveTo(startLocation);
     }
   }
 
@@ -328,6 +368,17 @@ class Board {
     assert(pathIsBlocked(path));
     haveUsedSpellBreaker = true;
     blockerSpaces[path].removeBlocker();
+  }
+
+  String debugString() {
+    String debug = cauldron.debugString() + "\n";
+    for (int i = 0; i < startSpaces.length; i++) {
+      Space start = startSpaces[i];
+      var path = shortestPathToGoal(start, ignoreBlocks: true);
+      debug += " " + wizardPath[i * 2].debugString() + "\n";
+      debug += stringForPath(path) + "\n";
+    }
+    return debug;
   }
 }
 
@@ -429,23 +480,31 @@ int maxSpacesMoved(Action action) {
 bool isLegalMove(Bottle bottle, Space toSpace, Action action) {
   // It's never legal to move onto a blocker.
   if (toSpace.isBlocked()) {
+    print("Illegal: toSpace is Blocked!");
     return false;
   }
   Space? fromSpace = bottle.location;
   if (fromSpace == null) {
+    print("Illegal: bottle.location is null");
     // This does not handle placing pieces.
     return false;
   }
   if (fromSpace == toSpace) {
+    // This must be allowed, in the case where we're up next to a blocker.
+    // Or even in the case where we're caught between two blockers and have an
+    // even role.
     return true;
   }
   int maxSpaces = maxSpacesMoved(action);
   var path = shortestPath(
       from: fromSpace, to: toSpace, ignoreBlockers: action == Action.magic);
   if (path == null) {
+    print("Illegal: no path from bottle to toSpace!");
     return false;
   }
-  return path.length < maxSpaces;
+  // Path includes the starting space.
+  assert(path.first == bottle.location);
+  return path.length - 1 <= maxSpaces;
 }
 
 class CauldronQuest {
@@ -468,26 +527,31 @@ class CauldronQuest {
     }
     if (actor == Actor.potion && action == Action.magic) {
       stats.magicCount++;
+      bool magicSucess = false;
       Charm charm = planner.planCharm(board);
       switch (charm) {
         case Charm.revealCharm:
-          if (tryRevealCharm()) {
+          if (magicSucess = tryRevealCharm()) {
             stats.potionsRevealed++;
             PlannedReveal reveal = planner.planPotionReveal(board);
             handleReveal(reveal);
           }
           break;
         case Charm.swapCharm:
-          if (trySwapCharm()) {
+          if (magicSucess = trySwapCharm()) {
             stats.potionsSwapped++;
           }
           break;
         case Charm.superPowerCharm:
-          if (trySuperPowerCharm(planner)) {
+          if (magicSucess = trySuperPowerCharm(planner)) {
             PlannedMove move = planner.pickBottleToSuperCharm(board);
+            stats.supercharmCount++;
             handleBottleMove(action, move);
           }
           break;
+      }
+      if (!magicSucess) {
+        stats.magicFailures++;
       }
 
       return;
@@ -508,10 +572,12 @@ class CauldronQuest {
     assert(false);
   }
 
-  void handleBottleMove(Action action, PlannedMove move) {
+  void handleBottleMove(Action action, PlannedMove plan) {
     // TODO: Should not trust anything from PlannedMove in this function!
-    assert(move.possibleDistance < maxSpacesMoved(action));
-    stats.potionMoveDistance += move.possibleDistance;
+    assert(plan.possibleDistance <= maxSpacesMoved(action));
+    stats.potionMoveDistance += plan.possibleDistance;
+    assert(isLegalMove(plan.bottle, plan.toSpace, action));
+    plan.bottle.moveTo(plan.toSpace);
   }
 
   void handleReveal(PlannedReveal reveal) {
@@ -528,9 +594,9 @@ class CauldronQuest {
     if (board.cauldron.tokens.length < 2) {
       return;
     }
-    List<Bottle> bottles = board.cauldron.tokens as List<Bottle>;
+    var tokens = board.cauldron.tokens;
     Set<int> completedIngredients =
-        bottles.map((bottle) => bottle.ingredient).toSet();
+        tokens.map((token) => (token as Bottle).ingredient).toSet();
     Set<int> intersection =
         completedIngredients.intersection(Set.from(board.neededIngredients));
     if (intersection.length == 3) {

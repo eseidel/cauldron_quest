@@ -44,6 +44,10 @@ void printAggregateStatistics(List<GameStats> gameStats) {
   printStats("Magics rolled", gameStats.map((stats) => stats.magicCount));
   printStats(
       "Potions revealed", gameStats.map((stats) => stats.potionsRevealed));
+  printStats("Potions swapped", gameStats.map((stats) => stats.potionsSwapped));
+  printStats("Supercharms", gameStats.map((stats) => stats.supercharmCount));
+  printStats("Magics failed", gameStats.map((stats) => stats.magicFailures));
+
   printStats("Potion spaces moved",
       gameStats.map((stats) => stats.potionMoveDistance));
   printStats("Wizard spaces moved",

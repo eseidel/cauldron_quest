@@ -1,15 +1,19 @@
 import 'dart:math';
 
+import 'package:cauldron_quest/astar.dart';
+
 import 'rules.dart';
 
 class PlannedMove {
   final Bottle bottle;
+  final Space toSpace;
   final Action action;
   final int possibleDistance;
   final int actualDistance;
 
   PlannedMove({
     required this.bottle,
+    required this.toSpace,
     required this.action,
     required this.possibleDistance,
     required this.actualDistance,
@@ -66,12 +70,16 @@ class Planner {
       int maxMoveDistance = bottle.isRevealed ? path.length : path.length - 1;
       // Bottles not revealed, but just outside the cauldron don't need to move.
       if (maxMoveDistance < 1) continue;
+      // path includes start, so a second -1 is needed.
+      int actualDistance = min(superCharmMoveDistance, maxMoveDistance - 1);
+      Space toSpace = path[actualDistance];
       // TODO: Handle the case of an ilegal move (moving onto a blocker?)
       possibleMoves.add(PlannedMove(
         bottle: bottle,
+        toSpace: toSpace,
         action: Action.magic,
         possibleDistance: superCharmMoveDistance,
-        actualDistance: min(superCharmMoveDistance, path.length),
+        actualDistance: actualDistance,
       ));
     }
     return possibleMoves.first;
@@ -98,11 +106,28 @@ class Planner {
       bottleToMove = board.bottles
           .firstWhere((bottle) => bottle.location != board.cauldron);
     }
+    Space fromSpace = bottleToMove.location!;
+    // var path = board.shortestPathToGoal(fromSpace).toList();
+    var path = shortestPath(from: fromSpace, to: board.cauldron);
+    if (path == null) {
+      // This can happen if our path is blocked by the wizard (or worse yet,
+      // by the wizard on one side and a blocker on another).
+      // This isn't quite right, but prevents crashing at least.
+      List<Space> blockedPath = shortestPath(
+              from: fromSpace, to: board.cauldron, ignoreBlockers: true)!
+          .toList();
+      int blockedIndex = blockedPath.indexWhere((space) => space.isBlocked());
+      path = blockedPath.sublist(0, blockedIndex - 1);
+    }
+
+    int actualDistance = min(maxDistance, path.length - 1);
     return PlannedMove(
       bottle: bottleToMove,
+      // Path can be empty if you're up next to a blocker!
+      toSpace: path.isEmpty ? fromSpace : path[actualDistance],
       action: action,
       possibleDistance: maxDistance,
-      actualDistance: min(maxDistance, bottleToMove.location!.distanceToGoal),
+      actualDistance: actualDistance,
     );
   }
 }
