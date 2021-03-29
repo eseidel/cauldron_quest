@@ -39,7 +39,7 @@ void printAggregateStatistics(List<GameStats> gameStats) {
 
   int actualWins =
       gameStats.fold(0, (int sum, stats) => sum + (stats.playerWon ? 1 : 0));
-  print("${toPercent(actualWins)} max wins, N=${gameStats.length}");
+  print("${toPercent(actualWins)} actual wins, N=${gameStats.length}");
 
   int possibleWins =
       gameStats.fold(0, (int sum, stats) => sum + (stats.couldHaveWon ? 1 : 0));

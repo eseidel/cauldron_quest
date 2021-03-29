@@ -12,5 +12,5 @@ class GameStats {
   int supercharmCount = 0;
   bool playerWon = false;
 
-  bool get couldHaveWon => potionsRevealed > 3 && potionMoveDistance > 30;
+  bool get couldHaveWon => potionsRevealed >= 3 && potionMoveDistance >= 30;
 }
