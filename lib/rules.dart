@@ -185,7 +185,7 @@ class Board {
   late List<Space> startSpaces;
   late List<Space> wizardPath;
   late List<Space> blockerSpaces;
-  late List<int> neededIngredients;
+  late Set<int> neededIngredients;
 
   bool haveUsedSpellBreaker = false;
 
@@ -265,7 +265,7 @@ class Board {
 
     List<int> ingredients = List.generate(ingredientCount, (index) => index);
     ingredients.shuffle();
-    neededIngredients = ingredients.take(3).toList();
+    neededIngredients = ingredients.take(3).toSet();
 
     bottles = List.generate(ingredientCount, (index) => Bottle(index));
     bottles.shuffle();
@@ -371,10 +371,11 @@ class Board {
   }
 
   int revealedRequiredIngredientCount() {
-    Set<int> revealedIngredients =
-        bottles.map((bottle) => bottle.ingredient).toSet();
-    Set<int> intersection =
-        revealedIngredients.intersection(Set.from(neededIngredients));
+    Set<int> revealedIngredients = bottles
+        .where((bottle) => bottle.isRevealed)
+        .map((bottle) => bottle.ingredient)
+        .toSet();
+    Set<int> intersection = revealedIngredients.intersection(neededIngredients);
     return intersection.length;
   }
 
@@ -383,7 +384,7 @@ class Board {
     Set<int> completedIngredients =
         tokens.map((token) => (token as Bottle).ingredient).toSet();
     Set<int> intersection =
-        completedIngredients.intersection(Set.from(neededIngredients));
+        completedIngredients.intersection(neededIngredients);
     return intersection.length;
   }
 

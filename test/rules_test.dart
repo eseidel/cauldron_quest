@@ -145,4 +145,23 @@ void main() {
     expect(board.pathIsBlocked(0), false);
     expect(board.haveUsedSpellBreaker, true);
   });
+
+  test('neededIngredients', () {
+    Board board = Board();
+    expect(board.neededIngredients.length, 3);
+    expect(board.completedRequiredIngredientCount(), 0);
+    expect(board.revealedRequiredIngredientCount(), 0);
+    for (Bottle bottle in board.bottles) {
+      bottle.isRevealed = true;
+    }
+    expect(board.completedRequiredIngredientCount(), 0);
+    expect(board.revealedRequiredIngredientCount(), 3);
+    for (Bottle bottle in board.bottles) {
+      // Not technically allowed to move non-needed ingredients into cauldron.
+      if (board.neededIngredients.contains(bottle.ingredient))
+        bottle.moveTo(board.cauldron);
+    }
+    expect(board.completedRequiredIngredientCount(), 3);
+    expect(board.revealedRequiredIngredientCount(), 3);
+  });
 }
