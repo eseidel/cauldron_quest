@@ -49,12 +49,9 @@ class Planner {
   }
 
   Charm planCharm(Board board) {
-    // Can't yet check < 3, triggers crash.
-    // if (board.revealedRequiredIngredientCount() < 3) {
-    if (board.bottles.any((bottle) => !bottle.isRevealed)) {
+    if (board.revealedRequiredIngredientCount() < 3) {
       return Charm.revealCharm;
     }
-    // }
     // Swap if swapping reduces total distance to win.
     // Otherwise supercharm?
     return Charm.superPowerCharm;
@@ -94,8 +91,7 @@ class Planner {
 
   PlannedMove planBottleMove(Board board, Action action) {
     int maxDistance = maxSpacesMoved(action);
-    // Move a revealed potion.
-    // Otherwise move a random non-revealed potion.
+    // Move a revealed potion, otherwise move a random non-revealed potion.
     Bottle? bottleToMove;
     List<Bottle> revealedBottles = board.bottles
         .where(

@@ -164,4 +164,27 @@ void main() {
     expect(board.completedRequiredIngredientCount(), 3);
     expect(board.revealedRequiredIngredientCount(), 3);
   });
+
+  test('checkForWin wizard win', () {
+    CauldronQuest game = CauldronQuest();
+    expect(game.isComplete, false);
+    for (var space in game.board.blockerSpaces) {
+      space.addBlocker();
+    }
+    game.checkForWin();
+    expect(game.isComplete, true);
+    expect(game.wizardWon, true);
+  });
+  test('checkForWin player win', () {
+    CauldronQuest game = CauldronQuest();
+    expect(game.isComplete, false);
+    for (Bottle bottle in game.board.bottles) {
+      // Not technically allowed to move non-needed ingredients into cauldron.
+      if (game.board.neededIngredients.contains(bottle.ingredient))
+        bottle.moveTo(game.board.cauldron);
+    }
+    game.checkForWin();
+    expect(game.isComplete, true);
+    expect(game.wizardWon, false);
+  });
 }
