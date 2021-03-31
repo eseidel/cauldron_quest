@@ -170,17 +170,19 @@ String stringForPath(Iterable<Space> path) {
 }
 
 class SaveState {
-  // Example: 1,2,3/0.r.1:2,1.h.2:1/4:7/w:11
+  // Example: 1,2,3/0.r.1:2,1.h.2:1/4:7/w:11/1
   Set<int> neededIngredients;
   List<Bottle> bottles;
   List<Space> blockerSpaces;
   Wizard wizard;
+  bool haveUsedSpellBreaker;
 
   SaveState(
       {required this.neededIngredients,
       required this.bottles,
       required this.blockerSpaces,
-      required this.wizard});
+      required this.wizard,
+      required this.haveUsedSpellBreaker});
 
   factory SaveState.fromString(
       String saveString, Space spaceForName(String name)) {
@@ -197,6 +199,7 @@ class SaveState {
       bottles: parts[1].split(',').map(parseBottle).toList(),
       blockerSpaces: parts[2].split(',').map(spaceForName).toList(),
       wizard: Wizard()..moveTo(spaceForName(parts[3])),
+      haveUsedSpellBreaker: int.parse(parts[4]) != 1,
     );
   }
 
@@ -215,8 +218,10 @@ class SaveState {
     String blockers = sortAndJoin(blockerSpaces
         .where((space) => space.isBlocked())
         .map((space) => space.name));
+    String wizardString = wizard.location!.name;
+    String spellbreaker = haveUsedSpellBreaker ? '0' : '1';
 
-    return [ingredients, bottlesString, blockers, wizard.location!.name]
+    return [ingredients, bottlesString, blockers, wizardString, spellbreaker]
         .join('/');
   }
 }
@@ -340,6 +345,10 @@ class Board {
       neededIngredients = save.neededIngredients;
       bottles = save.bottles;
       wizard = save.wizard;
+      for (var blocker in save.blockerSpaces) {
+        blocker.addBlocker();
+      }
+      haveUsedSpellBreaker = save.haveUsedSpellBreaker;
     } else {
       List<int> ingredients = List.generate(ingredientCount, (index) => index);
       ingredients.shuffle();
@@ -483,11 +492,12 @@ class Board {
 
   String saveString() {
     return SaveState(
-            neededIngredients: neededIngredients,
-            bottles: bottles,
-            blockerSpaces: blockerSpaces,
-            wizard: wizard)
-        .toSaveString();
+      neededIngredients: neededIngredients,
+      bottles: bottles,
+      blockerSpaces: blockerSpaces,
+      wizard: wizard,
+      haveUsedSpellBreaker: haveUsedSpellBreaker,
+    ).toSaveString();
   }
 
   String debugString() {
@@ -619,6 +629,10 @@ bool isLegalMove(Bottle bottle, Space toSpace, Action action, Board board) {
   }
   if (toSpace == board.cauldron && !bottle.isRevealed) {
     // Not allowed to move a non-revealed ingredient into the cauldron.
+    return false;
+  }
+  if (toSpace == board.cauldron && !board.isBottleNeeded(bottle)) {
+    // Although possibly legal, we should never plan this move.
     return false;
   }
   int maxSpaces = maxSpacesMoved(action);

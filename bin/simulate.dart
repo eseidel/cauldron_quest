@@ -8,11 +8,22 @@ void printAggregateStatistics(List<GameStats> gameStats) {
     print(label + ": " + stats.withPrecision(3).toString());
   }
 
+  bool wasWin(GameStats stats) => stats.playerWon;
+  bool wasLoss(GameStats stats) => !stats.playerWon;
+
   // Mean game length is expected to be 42 turns.  7 success are needed (r) and
   // each success has a 1/6th chance (p), so the mean of the negative binomial
   // distribution = r / p = 7 * 6 = 42.
   // https://stattrek.com/probability-distributions/negative-binomial.aspx
-  printStats("Turns until blocked", gameStats.map((stats) => stats.turnCount));
+  printStats("Turns", gameStats.map((stats) => stats.turnCount));
+  printStats("Turns for losses",
+      gameStats.where(wasLoss).map((stats) => stats.turnCount));
+  printStats("Turns for wins",
+      gameStats.where(wasWin).map((stats) => stats.turnCount));
+  printStats("Blocks", gameStats.map((stats) => stats.blockCount));
+  printStats("Blocks for losses",
+      gameStats.where(wasLoss).map((stats) => stats.blockCount));
+
   // Potion move roll is 1/3 chance.  1/3 * 42 = 14.
   printStats(
       "Potion move rolled", gameStats.map((stats) => stats.potionMoveCount));

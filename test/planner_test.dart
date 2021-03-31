@@ -143,7 +143,7 @@ void main() {
     Planner planner = Planner();
     Board board = Board(
         saveString:
-            "2,4,5/5.r.goal,0.r.1:9,1.r.2:0,3.r.3:0,2.r.4:3,4.r.5:0/1:7/w:9");
+            "2,4,5/5.r.goal,0.r.1:9,1.r.2:0,3.r.3:0,2.r.4:3,4.r.5:0/1:7/w:9/0");
     planner.planBottleMove(board, Action.moveThree);
   });
 
@@ -152,7 +152,7 @@ void main() {
     Planner planner = Planner();
     Board board = Board(
         saveString:
-            "1,4,5/0.r.goal,1.r.w:10,2.r.2:0,3.r.4:0,4.r.goal,5.r.goal/0:7,2:7,3:7,4:7,5:7/w:3");
+            "1,4,5/0.r.goal,1.r.w:10,2.r.2:0,3.r.4:0,4.r.goal,5.r.goal/0:7,2:7,3:7,4:7,5:7/w:3/0");
     planner.planBottleMove(board, Action.moveThree);
   });
 
@@ -170,7 +170,7 @@ void main() {
     // That's not officially legal, but we're bending the rules here.
     Board board = Board(
         saveString:
-            "3,4,5/0.h.5:6,1.h.5:6,2.h.5:8,3.r.goal,4.h.3:7,5.r.goal/0:7,1:7,4:7/w:5");
+            "3,4,5/0.h.5:6,1.h.5:6,2.h.5:8,3.r.goal,4.h.3:7,5.r.goal/0:7,1:7,4:7/w:5/0");
     var plan = Planner().planBottleMove(board, Action.moveFour);
     expect(plan.actualDistance, lessThan(4));
   });
@@ -179,7 +179,7 @@ void main() {
     // If all bottles are hidden, pick the furthest hidden bottle.
     Board board = Board(
         saveString:
-            "0,1,3/0.h.3:6,1.h.5:9,2.h.4:0,3.h.1:6,4.h.2:0,5.h.0:0/0:7,1:7,2:7,3:7,4:7/w:11");
+            "0,1,3/0.h.3:6,1.h.5:9,2.h.4:0,3.h.1:6,4.h.2:0,5.h.0:0/0:7,1:7,2:7,3:7,4:7/w:11/0");
     var plan = Planner().planBottleMove(board, Action.moveThree);
     expect(plan.bottle.ingredient, isNot(1));
   });
@@ -188,7 +188,7 @@ void main() {
     // If all bottles are hidden, pick the furthest hidden bottle.
     Board board = Board(
         saveString:
-            "0,2,4/0.r.goal,1.r.3:0,2.r.0:6,3.r.1:0,4.r.5:3,5.r.2:0/0:7,1:7,2:7,3:7,4:7/w:11");
+            "0,2,4/0.r.goal,1.r.3:0,2.r.0:6,3.r.1:0,4.r.5:3,5.r.2:0/0:7,1:7,2:7,3:7,4:7/w:11/0");
     var plan = Planner().planBottleMove(board, Action.moveThree);
     // 2 is revealed and very close to the goal, but since all paths are
     // blocked and this one is adjacent to a blocker, we should pick another
@@ -200,7 +200,7 @@ void main() {
     // Possibly unrealistic since this has unneeded ingredients in the cauldron.
     Board board = Board(
         saveString:
-            "0,2,4/0.r.goal,1.r.goal,2.h.0:9,3.r.goal,4.r.goal,5.r.goal/1:7,3:7,4:7,5:7/w:7");
+            "0,2,4/0.r.goal,1.r.goal,2.h.0:9,3.r.goal,4.r.goal,5.r.goal/1:7,3:7,4:7,5:7/w:7/0");
     var plan = Planner().planBottleMove(board, Action.moveThree);
     // Make an *explicit* pass (not legal) to avoid moving.
     expect(plan.explicitPass, true);

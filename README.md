@@ -29,3 +29,6 @@ Potion spaces lost: {count: 10000, average: 6.0, min: 0, max: 71, median: 4.0, s
 Wizard spaces moved: {count: 10000, average: 17.9, min: 0, max: 78, median: 17.0, standardDeviation: 9.5}
 50.6% actual wins, N=10000
 79.2% max wins, N=10000
+
+Issues:
+* Unclear why median turn length dropped from 42 (expected?) to 32?

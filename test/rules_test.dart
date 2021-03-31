@@ -199,4 +199,16 @@ void main() {
     expect(bottle.location, isNot(blockerSpace));
     expect(bottle.location, board.startSpaces.first);
   });
+
+  test('blocker deserialization works', () {
+    Board board = Board(
+        saveString:
+            "0,2,4/0.r.goal,1.r.3:0,2.r.0:6,3.r.1:0,4.r.5:3,5.r.2:0/0:7,1:7,2:7,3:7,4:7/w:11/0");
+    expect(board.blockerSpaces[0].isBlocked(), true);
+    expect(board.blockerSpaces[1].isBlocked(), true);
+    expect(board.blockerSpaces[2].isBlocked(), true);
+    expect(board.blockerSpaces[3].isBlocked(), true);
+    expect(board.blockerSpaces[4].isBlocked(), true);
+    expect(board.haveUsedSpellBreaker, true);
+  });
 }
