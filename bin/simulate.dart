@@ -77,6 +77,6 @@ void main() {
   var start = DateTime.now();
   var gameStats = simulateGames(numberOfGames);
   var duration = DateTime.now().difference(start);
-  print('Completed: ${duration}');
+  print('Completed: $duration');
   printAggregateStatistics(gameStats);
 }

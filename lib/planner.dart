@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:cauldron_quest/astar.dart';
 
+// This shouldn't import rules.dart directly, but rather some interface.
 import 'rules.dart';
 
 class PlannedMove {

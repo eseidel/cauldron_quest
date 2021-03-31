@@ -575,6 +575,9 @@ class Reroll {
   @override
   bool operator ==(Object o) =>
       o is Reroll && count == o.count && group == o.group;
+
+  @override
+  int get hashCode => count.hashCode + group.hashCode;
 }
 
 void executeReroll(List<int?> dice, Reroll reroll) {
