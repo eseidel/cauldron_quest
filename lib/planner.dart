@@ -8,16 +8,18 @@ class PlannedMove {
   final Bottle bottle;
   final Space toSpace;
   final Action action;
-  final int possibleDistance;
   final int actualDistance;
+  final bool explicitPass;
 
   PlannedMove({
     required this.bottle,
     required this.toSpace,
     required this.action,
-    required this.possibleDistance,
     required this.actualDistance,
+    this.explicitPass = false,
   });
+
+  int get possibleDistance => maxSpacesMoved(action);
 }
 
 class PlannedCharm {
@@ -119,51 +121,118 @@ class Planner {
         bottle: bottle,
         toSpace: toSpace,
         action: Action.magic,
-        possibleDistance: superCharmMoveDistance,
         actualDistance: actualDistance,
       ));
     }
     return possibleMoves.first;
   }
 
-  PlannedMove planBottleMove(Board board, Action action) {
-    int maxDistance = maxSpacesMoved(action);
-    // Move a needed potion, otherwise move a random non-reveleaed potion.
-    Bottle? bottleToMove;
-    List<Bottle> neededBottles = board.bottles
-        .where((bottle) =>
-            bottle.isRevealed &&
-            bottle.location != board.cauldron &&
-            board.neededIngredients.contains(bottle.ingredient))
-        .toList();
-    if (neededBottles.isNotEmpty) {
-      bottleToMove = neededBottles.first;
-    } else {
-      bottleToMove = board.bottles.firstWhere(
-          (bottle) => !bottle.isRevealed && bottle.location != board.cauldron);
-    }
-    Space fromSpace = bottleToMove.location!;
-    // var path = board.shortestPathToGoal(fromSpace).toList();
-    var path = shortestPath(from: fromSpace, to: board.cauldron);
-    if (path == null) {
-      // This can happen if our path is blocked by the wizard (or worse yet,
-      // by the wizard on one side and a blocker on another).
-      // This isn't quite right, but prevents crashing at least.
-      List<Space> blockedPath = shortestPath(
-              from: fromSpace, to: board.cauldron, ignoreBlockers: true)!
-          .toList();
-      int blockedIndex = blockedPath.indexWhere((space) => space.isBlocked());
-      path = blockedPath.sublist(0, blockedIndex - 1);
-    }
+  List<Bottle> bottlesInPreferredMoveOrder(Board board) {
+    bool notInGoal(Bottle bottle) => bottle.location != board.cauldron;
+    bool isNeeded(Bottle bottle) =>
+        board.neededIngredients.contains(bottle.ingredient);
+    int distanceToGoal(Bottle bottle) => bottle.location!.distanceToGoal;
 
+    // Can't even move ones in goal, no sense in sorting them.
+    List<Bottle> bottles = board.bottles.where(notInGoal).toList();
+
+    const int aFirst = -1;
+    const int bFirst = 1;
+    bottles.sort((a, b) {
+      // Only time we wouldn't want to move an isNeeded bottle first is when
+      // it's blocked and can't move otherwise.
+      if (isNeeded(a) != isNeeded(b)) {
+        return isNeeded(a) ? aFirst : bFirst;
+      }
+      // TODO: If we built plans for each first, we could prefer non-revealed
+      // bottles with open moves in front of them over blocked ones.
+      if (a.isRevealed != b.isRevealed) {
+        return a.isRevealed ? aFirst : bFirst;
+      }
+      if (a.isRevealed) {
+        // Revealed bottles: prefer closer-to-goal.
+        return distanceToGoal(a).compareTo(distanceToGoal(b));
+      } else {
+        // Hidden bottles: prefer further-to-goal.
+        return distanceToGoal(b).compareTo(distanceToGoal(a));
+      }
+    });
+
+    return bottles;
+  }
+
+  List<Space> pathUpToBlocker(Board board, Space fromSpace) {
+    List<Space> blockedPath =
+        shortestPath(from: fromSpace, to: board.cauldron, ignoreBlockers: true)!
+            .toList();
+    int blockedIndex = blockedPath.indexWhere((space) => space.isBlocked());
+    return blockedPath.sublist(0, blockedIndex - 1);
+  }
+
+  PlannedMove planFromPath(Bottle bottle, List<Space> path, Action action) {
+    int maxDistance = maxSpacesMoved(action);
+    Space fromSpace = bottle.location!;
+    // path includes the start space.
+    assert(fromSpace == path.first);
     int actualDistance = min(maxDistance, path.length - 1);
     return PlannedMove(
-      bottle: bottleToMove,
+      bottle: bottle,
       // Path can be empty if you're up next to a blocker!
       toSpace: path.isEmpty ? fromSpace : path[actualDistance],
       action: action,
-      possibleDistance: maxDistance,
       actualDistance: actualDistance,
     );
+  }
+
+  PlannedMove planBottleMove(Board board, Action action) {
+    late PlannedMove plan;
+    // Move a needed potion, otherwise move a random non-reveleaed potion.
+    List<Bottle> sortedBottles = bottlesInPreferredMoveOrder(board);
+    for (Bottle bottle in sortedBottles) {
+      var path = shortestPath(from: bottle.location!, to: board.cauldron);
+      if (path == null) {
+        // This can happen if our path is blocked by the wizard (or worse yet,
+        // by the wizard on one side and a blocker on another).
+        // This isn't quite right, but prevents crashing at least.
+        continue;
+      }
+      plan = planFromPath(bottle, path, action);
+      // A bit of a hack, to try a different bottle if we can't make a legal
+      // move with this one.
+      if (board.isLegalBoardMove(action, plan)) {
+        return plan;
+      }
+    }
+    // This can happen if all paths are blocked (5 from blockers and the last
+    // temporarily by the wizard).  In this case, try again, this time
+    // moving just as much as we can.
+    for (Bottle bottle in sortedBottles) {
+      var blockedPath = shortestPath(
+              from: bottle.location!, to: board.cauldron, ignoreBlockers: true)!
+          .toList();
+
+      // The cauldron functions as a blocker for hidden bottles.
+      int blockedIndex = blockedPath
+          .indexWhere((space) => space.isBlocked() || space == board.cauldron);
+      blockedPath = blockedPath.sublist(0, blockedIndex - 1);
+      // Avoids the case of the picked bottle being right up against a blocker
+      // this could be avoided better by pre-computing all bottle plans and
+      // comparing the plans instead.
+      if (blockedPath.isEmpty) continue;
+
+      plan = planFromPath(bottle, blockedPath, action);
+      // Still check for legality in case this is landing on a blocker, etc.
+      if (board.isLegalBoardMove(action, plan)) {
+        return plan;
+      }
+    }
+    // This is never the right exit, but there do exist boards where we would
+    // have to move backwards.  I'd rather just have the planner pass for now.
+    return PlannedMove(
+        bottle: sortedBottles.first,
+        toSpace: sortedBottles.first.location!,
+        action: action,
+        actualDistance: 0,
+        explicitPass: true);
   }
 }
