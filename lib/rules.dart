@@ -68,9 +68,9 @@ abstract class Token {
 
 class Bottle extends Token {
   final int ingredient;
-  bool isRevealed = false;
+  bool isRevealed;
 
-  Bottle(this.ingredient);
+  Bottle(this.ingredient, {this.isRevealed = false});
 
   String debugString() => "B$ingredient" + (isRevealed ? 'r' : 'h');
 }
@@ -169,7 +169,61 @@ String stringForPath(Iterable<Space> path) {
   return path.map((space) => space.debugString()).join(" ");
 }
 
+class SaveState {
+  // Example: 1,2,3/0.r.1:2,1.h.2:1/4:7/w:11
+  Set<int> neededIngredients;
+  List<Bottle> bottles;
+  List<Space> blockerSpaces;
+  Wizard wizard;
+
+  SaveState(
+      {required this.neededIngredients,
+      required this.bottles,
+      required this.blockerSpaces,
+      required this.wizard});
+
+  factory SaveState.fromString(
+      String saveString, Space spaceForName(String name)) {
+    Bottle parseBottle(String bottleString) {
+      List<String> parts = bottleString.split('.');
+      var bottle = Bottle(int.parse(parts[0]), isRevealed: parts[1] == 'r');
+      bottle.moveTo(spaceForName(parts[2]));
+      return bottle;
+    }
+
+    List<String> parts = saveString.split('/');
+    return SaveState(
+      neededIngredients: parts[0].split(',').map(int.parse).toSet(),
+      bottles: parts[1].split(',').map(parseBottle).toList(),
+      blockerSpaces: parts[2].split(',').map(spaceForName).toList(),
+      wizard: Wizard()..moveTo(spaceForName(parts[3])),
+    );
+  }
+
+  String toSaveString() {
+    String sortAndJoin<T>(Iterable<T> iterable) {
+      List<T> list = iterable.toList();
+      list.sort();
+      return list.join(',');
+    }
+
+    String ingredients = sortAndJoin(neededIngredients);
+    String bottlesString = sortAndJoin(bottles.map((bottle) {
+      var revealed = bottle.isRevealed ? 'r' : 'h';
+      return '${bottle.ingredient}.$revealed.${bottle.location!.name}';
+    }));
+    String blockers = sortAndJoin(blockerSpaces
+        .where((space) => space.isBlocked())
+        .map((space) => space.name));
+
+    return [ingredients, bottlesString, blockers, wizard.location!.name]
+        .join('/');
+  }
+}
+
 class Board {
+  static const int ingredientCount = 6;
+
   int distanceVersion = 0;
   late Wizard wizard;
   late List<Bottle> bottles;
@@ -181,9 +235,11 @@ class Board {
 
   bool haveUsedSpellBreaker = false;
 
-  Board() {
+  Map<String, Space>? nameToSpace;
+
+  Board({String? saveString}) {
     buildBoardGraph();
-    placePieces();
+    placePieces(saveString);
     updateDistances();
   }
 
@@ -252,21 +308,52 @@ class Board {
     }
   }
 
-  void placePieces() {
-    const int ingredientCount = 6;
+  Iterable<Space> allSpaces() sync* {
+    List<Space> toWalk = [cauldron];
+    List<Space> seenNodes = [];
 
-    List<int> ingredients = List.generate(ingredientCount, (index) => index);
-    ingredients.shuffle();
-    neededIngredients = ingredients.take(3).toSet();
-
-    bottles = List.generate(ingredientCount, (index) => Bottle(index));
-    bottles.shuffle();
-    for (int i = 0; i < bottles.length; i++) {
-      bottles[i].moveTo(startSpaces[i]);
+    while (toWalk.isNotEmpty) {
+      Space current = toWalk.removeLast();
+      yield current;
+      seenNodes.add(current);
+      for (Space neighbor in current.adjacentSpaces) {
+        if (!seenNodes.contains(neighbor)) {
+          toWalk.add(neighbor);
+        }
+      }
     }
+  }
 
-    wizard = Wizard();
-    wizard.moveTo(wizardPath.first);
+  // Belongs on "Graph" class.
+  Space spaceForName(String name) {
+    if (nameToSpace == null) {
+      nameToSpace = Map.fromIterable(allSpaces(),
+          key: (space) => space.name, value: (space) => space);
+    }
+    return nameToSpace![name]!;
+  }
+
+  void placePieces(String? saveString) {
+    SaveState? save;
+    if (saveString != null) {
+      save = SaveState.fromString(saveString, spaceForName);
+      neededIngredients = save.neededIngredients;
+      bottles = save.bottles;
+      wizard = save.wizard;
+    } else {
+      List<int> ingredients = List.generate(ingredientCount, (index) => index);
+      ingredients.shuffle();
+      neededIngredients = ingredients.take(3).toSet();
+
+      bottles = List.generate(ingredientCount, (index) => Bottle(index));
+      bottles.shuffle();
+      for (int i = 0; i < bottles.length; i++) {
+        bottles[i].moveTo(startSpaces[i]);
+      }
+
+      wizard = Wizard();
+      wizard.moveTo(wizardPath.first);
+    }
   }
 
   static void updateDistancesFromGoal(Space goal, int version) {
@@ -303,13 +390,12 @@ class Board {
   }
 
   void _moveBottlesBackToStart(Space location) {
-    assert(location.onWizardPath);
     // copy the list (with toList) to avoid modificiation during iteration.
     var bottlesToRemove =
         location.tokens.where((token) => token is Bottle).toList();
 
     for (var bottle in bottlesToRemove) {
-      // TODO(eseidel): Should be nearest start location.
+      // TODO(eseidel): Should be nearest open start location.
       Space startLocation =
           startSpaces.firstWhere((space) => space.tokens.isEmpty);
       bottle.moveTo(startLocation);
@@ -350,6 +436,7 @@ class Board {
   // Mostly for testing.
   void blockPath(int path) {
     assert(!pathIsBlocked(path));
+    _moveBottlesBackToStart(blockerSpaces[path]);
     blockerSpaces[path].addBlocker();
   }
 
@@ -380,6 +467,12 @@ class Board {
     return intersection.length;
   }
 
+  bool isLegalBoardMove(Action action, PlannedMove plan) {
+    // Use a passed in action to catch cheats. :)
+    assert(action == plan.action);
+    return isLegalMove(plan.bottle, plan.toSpace, action, this);
+  }
+
   // These could be extension methods?
   // For testing, these do not respect bottle visibility!
   bool isBottleNeeded(Bottle bottle) =>
@@ -387,6 +480,15 @@ class Board {
   List<Bottle> get neededBottles => bottles.where(isBottleNeeded).toList();
   List<Bottle> get unneededBottles =>
       bottles.where((bottle) => !isBottleNeeded(bottle)).toList();
+
+  String saveString() {
+    return SaveState(
+            neededIngredients: neededIngredients,
+            bottles: bottles,
+            blockerSpaces: blockerSpaces,
+            wizard: wizard)
+        .toSaveString();
+  }
 
   String debugString() {
     String debug =
@@ -496,7 +598,7 @@ int maxSpacesMoved(Action action) {
   return 0;
 }
 
-bool isLegalMove(Bottle bottle, Space toSpace, Action action) {
+bool isLegalMove(Bottle bottle, Space toSpace, Action action, Board board) {
   // It's never legal to move onto a blocker.
   if (toSpace.isBlocked()) {
     print("Illegal: toSpace is Blocked!");
@@ -512,7 +614,12 @@ bool isLegalMove(Bottle bottle, Space toSpace, Action action) {
     // This must be allowed, in the case where we're up next to a blocker.
     // Or even in the case where we're caught between two blockers and have an
     // even role.
+    // Should we assert explicit pass here?
     return true;
+  }
+  if (toSpace == board.cauldron && !bottle.isRevealed) {
+    // Not allowed to move a non-revealed ingredient into the cauldron.
+    return false;
   }
   int maxSpaces = maxSpacesMoved(action);
   var path = shortestPath(
@@ -603,9 +710,9 @@ class CauldronQuest {
 
   void handleBottleMove(Action action, PlannedMove plan) {
     // TODO: Should not trust anything from PlannedMove in this function!
-    assert(plan.possibleDistance <= maxSpacesMoved(action));
-    stats.potionMoveDistance += plan.possibleDistance;
-    assert(isLegalMove(plan.bottle, plan.toSpace, action));
+    stats.potionMoveDistance += plan.actualDistance;
+    stats.wastedMoveDistance += plan.possibleDistance - plan.actualDistance;
+    assert(board.isLegalBoardMove(action, plan));
     plan.bottle.moveTo(plan.toSpace);
   }
 

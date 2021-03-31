@@ -6,6 +6,7 @@ class GameStats {
   int potionMoveCount = 0;
   int wizardMoveCount = 0;
   int potionMoveDistance = 0;
+  int wastedMoveDistance = 0;
   int wizardMoveDistance = 0;
   int potionsRevealed = 0;
   int potionsSwapped = 0;

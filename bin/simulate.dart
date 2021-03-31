@@ -29,6 +29,8 @@ void printAggregateStatistics(List<GameStats> gameStats) {
 
   printStats("Potion spaces moved",
       gameStats.map((stats) => stats.potionMoveDistance));
+  printStats(
+      "Potion spaces lost", gameStats.map((stats) => stats.wastedMoveDistance));
   printStats("Wizard spaces moved",
       gameStats.map((stats) => stats.wizardMoveDistance));
 

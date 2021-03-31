@@ -187,4 +187,16 @@ void main() {
     expect(game.isComplete, true);
     expect(game.wizardWon, false);
   });
+
+  test('blocking a path moves bottles back to start', () {
+    Board board = Board();
+    Space blockerSpace = board.blockerSpaces.first;
+    Bottle bottle = board.bottles.first;
+    bottle.moveTo(blockerSpace);
+    expect(blockerSpace.tokens.first, bottle);
+    board.blockPath(0);
+    expect(blockerSpace.isBlocked(), true);
+    expect(bottle.location, isNot(blockerSpace));
+    expect(bottle.location, board.startSpaces.first);
+  });
 }

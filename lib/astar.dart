@@ -34,6 +34,7 @@ class _AStarAdaptor extends Graph<AStarNode> {
 
   Space toSpace(AStarNode node) => node.space;
 
+  // TODO: Should this use Board.allSpaces instead?
   List<AStarNode> collectAllNodes(Space root) {
     List<Space> toWalk = [root];
     List<Space> seenNodes = [];
@@ -54,6 +55,8 @@ class _AStarAdaptor extends Graph<AStarNode> {
   @override
   late Iterable<AStarNode> allNodes;
 
+  // TODO: Should this just model "blocked" as 100 distance or similar
+  // and then we would not need separate topologies for blocked vs. not?
   @override
   num getDistance(AStarNode a, AStarNode b) {
     assert(a.space.adjacentTo(b.space));
