@@ -1,10 +1,12 @@
+import 'dart:math';
+
 import 'package:test/test.dart';
 import 'package:cauldron_quest/rules.dart';
 import 'package:cauldron_quest/astar.dart';
 
 void main() {
   test('board setup', () {
-    Board board = Board();
+    Board board = Board(random: Random(0));
     expect(board.wizardPath.length, 12);
     expect(board.startSpaces.length, 6);
     expect(board.cauldron.adjacentSpaces.length, 6);
@@ -19,7 +21,7 @@ void main() {
   });
 
   test('distance calculations', () {
-    Board board = Board();
+    Board board = Board(random: Random(0));
     board.updateDistances();
     expect(board.startSpaces.first.unblockedDistanceToGoal, 10);
     expect(board.startSpaces.first.distanceToGoal, 10);
@@ -117,14 +119,14 @@ void main() {
   });
 
   test('path blocking', () {
-    Board board = Board();
+    Board board = Board(random: Random(0));
     expect(board.unblockedPathCount, 6);
-    board.blockRandomPath();
+    board.blockRandomPath(Random());
     expect(board.unblockedPathCount, 5);
   });
 
   test('wizard moving', () {
-    Board board = Board();
+    Board board = Board(random: Random(0));
 
     int wizardLocation() {
       return board.wizardPath
@@ -137,7 +139,7 @@ void main() {
   });
 
   test('spellbreaker token', () {
-    Board board = Board();
+    Board board = Board(random: Random(0));
     expect(board.haveUsedSpellBreaker, false);
     board.blockPath(0);
     expect(board.pathIsBlocked(0), true);
@@ -147,7 +149,7 @@ void main() {
   });
 
   test('neededIngredients', () {
-    Board board = Board();
+    Board board = Board(random: Random(0));
     expect(board.neededIngredients.length, 3);
     expect(board.completedRequiredIngredientCount(), 0);
     expect(board.revealedRequiredIngredientCount(), 0);
@@ -189,7 +191,7 @@ void main() {
   });
 
   test('blocking a path moves bottles back to start', () {
-    Board board = Board();
+    Board board = Board(random: Random(0));
     Space blockerSpace = board.blockerSpaces.first;
     Bottle bottle = board.bottles.first;
     bottle.moveTo(blockerSpace);
@@ -213,10 +215,23 @@ void main() {
   });
 
   test('blocker tokens are connected to spaces', () {
-    Board board = Board();
+    Board board = Board(random: Random(0));
     var blockerSpace = board.blockerSpaces.first;
     blockerSpace.addBlocker();
     var blocker = blockerSpace.tokens.first;
     expect(blocker.location, blockerSpace);
+  });
+
+  test('random seeding works', () {
+    int runToCompletion(CauldronQuest game) {
+      while (!game.isComplete) {
+        game.takeTurn();
+      }
+      return game.stats.turnCount;
+    }
+
+    var game = CauldronQuest(Random(0));
+    var game2 = CauldronQuest(Random(0));
+    expect(runToCompletion(game), runToCompletion(game2));
   });
 }

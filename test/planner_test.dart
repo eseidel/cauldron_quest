@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cauldron_quest/astar.dart';
 import 'package:test/test.dart';
 import 'package:cauldron_quest/planner.dart';
@@ -38,12 +40,12 @@ void main() {
   test('bottlesInPreferredMoveOrder', () {
     Planner planner = Planner();
 
-    Board board = Board();
+    Board board = Board(random: Random(0));
     board.moveToCauldron(board.bottles.first);
     List<Bottle> bottles = planner.bottlesInPreferredMoveOrder(board);
     expect(bottles.length, 5);
 
-    board = Board();
+    board = Board(random: Random(0));
     board.neededBottles.first.isRevealed = true;
     bottles = planner.bottlesInPreferredMoveOrder(board);
     expect(bottles.first, board.neededBottles.first);
@@ -51,7 +53,7 @@ void main() {
 
   test('planMoveBottle', () {
     Planner planner = Planner();
-    Board board = Board();
+    Board board = Board(random: Random(0));
     var plan = planner.planBottleMove(board, Action.moveThree);
     expect(plan.action, Action.moveThree);
     expect(plan.actualDistance, 3);
@@ -64,7 +66,7 @@ void main() {
 
   test('planMoveBottle order', () {
     Planner planner = Planner();
-    Board board = Board();
+    Board board = Board(random: Random(0));
 
     var unneededBottle = board.unneededBottles.first;
     unneededBottle.isRevealed = true;
@@ -77,7 +79,7 @@ void main() {
   });
 
   test('planMoveBottle last unrevealed bottle', () {
-    Board board = Board();
+    Board board = Board(random: Random(0));
     var neededBottles = board.neededBottles;
     board.moveToCauldron(neededBottles[0]);
     board.moveToCauldron(neededBottles[1]);
@@ -99,7 +101,7 @@ void main() {
 
   test('planCharm reveal until ingredients found', () {
     Planner planner = Planner();
-    Board board = Board();
+    Board board = Board(random: Random(0));
     var neededBottles = board.neededBottles;
     expect(planner.planCharm(board).charm, Charm.revealCharm);
     neededBottles[0].isRevealed = true; // ignoring plan.
@@ -116,7 +118,7 @@ void main() {
 
   test('planCharm swap when helpful', () {
     Planner planner = Planner();
-    Board board = Board();
+    Board board = Board(random: Random(0));
     var neededBottles = board.neededBottles;
 
     // planCharm will always reveal until all 3 needed are revealed.
@@ -157,7 +159,7 @@ void main() {
   });
 
   test('planBottleMove avoids moving useless revealed', () {
-    Board board = Board();
+    Board board = Board(random: Random(0));
     for (var bottle in board.unneededBottles) {
       bottle.isRevealed = true;
     }

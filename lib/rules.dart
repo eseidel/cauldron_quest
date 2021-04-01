@@ -3,12 +3,11 @@ import 'stats.dart';
 import 'planner.dart';
 import 'astar.dart';
 
-var random = Random();
-
 class Die<T> {
+  final Random random;
   final List<T> faces;
 
-  Die(this.faces);
+  Die(this.faces, this.random);
 
   T roll() => faces[random.nextInt(faces.length)];
 }
@@ -29,24 +28,6 @@ enum Charm {
   swapCharm,
   superPowerCharm,
 }
-
-final Die<int> numberDie = Die<int>([1, 2, 3, 4, 5, 6]);
-final Die<Actor> actorDie = Die<Actor>([
-  Actor.wizard,
-  Actor.wizard,
-  Actor.potion,
-  Actor.potion,
-  Actor.potion,
-  Actor.potion,
-]);
-final Die<Action> actionDie = Die<Action>([
-  Action.magic,
-  Action.magic,
-  Action.magic,
-  Action.moveThree,
-  Action.moveThree,
-  Action.moveFour,
-]);
 
 abstract class Token {
   Space? _location;
@@ -275,9 +256,15 @@ class Board {
 
   Map<String, Space>? nameToSpace;
 
-  Board({String? saveString}) {
+  Board({String? saveString, Random? random}) {
     buildBoardGraph();
-    placePieces(saveString);
+    if (saveString != null) {
+      placePiecesFromSave(saveString);
+    } else if (random != null) {
+      placePiecesFromRandom(random);
+    } else {
+      throw ArgumentError("Either random or saveString required.");
+    }
     updateDistances();
   }
 
@@ -370,31 +357,31 @@ class Board {
     return nameToSpace![name]!;
   }
 
-  void placePieces(String? saveString) {
+  void placePiecesFromSave(String saveString) {
     SaveState? save;
-    if (saveString != null) {
-      save = SaveState.fromString(saveString, spaceForName);
-      neededIngredients = save.neededIngredients;
-      bottles = save.bottles;
-      wizard = save.wizard;
-      for (var blocker in save.blockerSpaces) {
-        blocker.addBlocker();
-      }
-      haveUsedSpellBreaker = save.haveUsedSpellBreaker;
-    } else {
-      List<int> ingredients = List.generate(ingredientCount, (index) => index);
-      ingredients.shuffle();
-      neededIngredients = ingredients.take(3).toSet();
-
-      bottles = List.generate(ingredientCount, (index) => Bottle(index));
-      bottles.shuffle();
-      for (int i = 0; i < bottles.length; i++) {
-        bottles[i].moveTo(startSpaces[i]);
-      }
-
-      wizard = Wizard();
-      wizard.moveTo(wizardPath.first);
+    save = SaveState.fromString(saveString, spaceForName);
+    neededIngredients = save.neededIngredients;
+    bottles = save.bottles;
+    wizard = save.wizard;
+    for (var blocker in save.blockerSpaces) {
+      blocker.addBlocker();
     }
+    haveUsedSpellBreaker = save.haveUsedSpellBreaker;
+  }
+
+  void placePiecesFromRandom(Random random) {
+    List<int> ingredients = List.generate(ingredientCount, (index) => index);
+    ingredients.shuffle(random);
+    neededIngredients = ingredients.take(3).toSet();
+
+    bottles = List.generate(ingredientCount, (index) => Bottle(index));
+    bottles.shuffle(random);
+    for (int i = 0; i < bottles.length; i++) {
+      bottles[i].moveTo(startSpaces[i]);
+    }
+
+    wizard = Wizard();
+    wizard.moveTo(wizardPath.first);
   }
 
   static void updateDistancesFromGoal(Space goal, int version) {
@@ -468,8 +455,8 @@ class Board {
 
   int get unblockedPathCount => collectUnblockedPaths().length;
 
-  void blockRandomPath() {
-    List<int> pathsToBlock = collectUnblockedPaths().toList()..shuffle();
+  void blockRandomPath(Random random) {
+    List<int> pathsToBlock = collectUnblockedPaths().toList()..shuffle(random);
     assert(pathsToBlock.isNotEmpty);
     blockPath(pathsToBlock.first);
   }
@@ -545,37 +532,83 @@ class Board {
   }
 }
 
-bool threeTries(bool doTry(List<int?> dice)) {
-  List<int?> dice = [null, null, null];
-  return doTry(dice) || doTry(dice) || doTry(dice);
-}
+class Roller {
+  final Random random;
 
-bool tryRevealCharm() {
-  return threeTries(
-    (List<int?> dice) {
-      for (int i = 0; i < dice.length; i++) {
-        int? lastValue = dice[i];
-        if (lastValue == null || !lastValue.isEven) {
-          dice[i] = numberDie.roll();
-        }
-      }
-      return dice.every((int? value) => value!.isEven);
-    },
-  );
-}
+  late final Die<int> numberDie = Die<int>([1, 2, 3, 4, 5, 6], random);
+  late final Die<Actor> actorDie = Die<Actor>([
+    Actor.wizard,
+    Actor.wizard,
+    Actor.potion,
+    Actor.potion,
+    Actor.potion,
+    Actor.potion,
+  ], random);
+  late final Die<Action> actionDie = Die<Action>([
+    Action.magic,
+    Action.magic,
+    Action.magic,
+    Action.moveThree,
+    Action.moveThree,
+    Action.moveFour,
+  ], random);
 
-bool trySwapCharm() {
-  return threeTries(
-    (List<int?> dice) {
-      for (int i = 0; i < dice.length; i++) {
-        int? lastValue = dice[i];
-        if (lastValue == null || !lastValue.isOdd) {
-          dice[i] = numberDie.roll();
+  Roller(this.random);
+
+  bool threeTries(bool doTry(List<int?> dice)) {
+    List<int?> dice = [null, null, null];
+    return doTry(dice) || doTry(dice) || doTry(dice);
+  }
+
+  bool tryRevealCharm() {
+    return threeTries(
+      (List<int?> dice) {
+        for (int i = 0; i < dice.length; i++) {
+          int? lastValue = dice[i];
+          if (lastValue == null || !lastValue.isEven) {
+            dice[i] = numberDie.roll();
+          }
         }
-      }
-      return dice.every((int? value) => value!.isOdd);
-    },
-  );
+        return dice.every((int? value) => value!.isEven);
+      },
+    );
+  }
+
+  bool trySwapCharm() {
+    return threeTries(
+      (List<int?> dice) {
+        for (int i = 0; i < dice.length; i++) {
+          int? lastValue = dice[i];
+          if (lastValue == null || !lastValue.isOdd) {
+            dice[i] = numberDie.roll();
+          }
+        }
+        return dice.every((int? value) => value!.isOdd);
+      },
+    );
+  }
+
+  void executeReroll(List<int?> dice, Reroll reroll) {
+    bool hasNulls = dice.any((element) => element == null);
+    if (!hasNulls) {
+      if (reroll.group == RerollGroup.smallest)
+        dice.sort((a, b) => a!.compareTo(b!));
+      else
+        dice.sort((a, b) => b!.compareTo(a!));
+    }
+    assert(!hasNulls || reroll == Reroll.all());
+    for (int i = 0; i < reroll.count; i++) {
+      dice[i] = numberDie.roll();
+    }
+  }
+
+  bool trySuperPowerCharm(Planner planner) {
+    return threeTries((List<int?> dice) {
+      Reroll reroll = planner.planReroll(dice);
+      executeReroll(dice, reroll);
+      return dice.fold(0, (dynamic sum, value) => sum + value) == 12;
+    });
+  }
 }
 
 enum RerollGroup {
@@ -610,28 +643,6 @@ class Reroll {
 
   @override
   int get hashCode => count.hashCode + group.hashCode;
-}
-
-void executeReroll(List<int?> dice, Reroll reroll) {
-  bool hasNulls = dice.any((element) => element == null);
-  if (!hasNulls) {
-    if (reroll.group == RerollGroup.smallest)
-      dice.sort((a, b) => a!.compareTo(b!));
-    else
-      dice.sort((a, b) => b!.compareTo(a!));
-  }
-  assert(!hasNulls || reroll == Reroll.all());
-  for (int i = 0; i < reroll.count; i++) {
-    dice[i] = numberDie.roll();
-  }
-}
-
-bool trySuperPowerCharm(Planner planner) {
-  return threeTries((List<int?> dice) {
-    Reroll reroll = planner.planReroll(dice);
-    executeReroll(dice, reroll);
-    return dice.fold(0, (dynamic sum, value) => sum + value) == 12;
-  });
 }
 
 // TODO: Does this belong on a Rules object?
@@ -683,18 +694,22 @@ bool isLegalMove(Bottle bottle, Space toSpace, Action action, Board board) {
 }
 
 class CauldronQuest {
+  final Random _random;
   final GameStats stats = GameStats();
-  final Board board = Board();
+  late final Board board = Board(random: _random);
   final Planner planner = Planner();
+  late final Roller roller = Roller(_random);
 
   bool isComplete = false;
   bool wizardWon = false;
+
+  CauldronQuest([Random? random]) : _random = random ?? Random();
 
   void handleRoll(Actor actor, Action action) {
     stats.turnCount++;
     if (actor == Actor.wizard && action == Action.magic) {
       stats.blockCount++;
-      board.blockRandomPath();
+      board.blockRandomPath(_random);
       // TODO(eseidel): Hack until we know how to plan spell-breaker usage.
       if (!board.haveUsedSpellBreaker)
         board.unblockWithSpellBreaker(board.collectBlockedPaths().first);
@@ -726,20 +741,20 @@ class CauldronQuest {
     bool magicSucess = false;
     switch (plan.charm) {
       case Charm.revealCharm:
-        if (magicSucess = tryRevealCharm()) {
+        if (magicSucess = roller.tryRevealCharm()) {
           stats.potionsRevealed++;
           assert(!plan.bottle.isRevealed);
           plan.bottle.isRevealed = true;
         }
         break;
       case Charm.swapCharm:
-        if (magicSucess = trySwapCharm()) {
+        if (magicSucess = roller.trySwapCharm()) {
           stats.potionsSwapped++;
           handleBottleSwap(plan.bottle, plan.swapWith!);
         }
         break;
       case Charm.superPowerCharm:
-        if (magicSucess = trySuperPowerCharm(planner)) {
+        if (magicSucess = roller.trySuperPowerCharm(planner)) {
           stats.supercharmCount++;
           handleBottleMove(action, plan.superCharmMove!);
         }
@@ -783,8 +798,8 @@ class CauldronQuest {
 
   void takeTurn() {
     assert(!isComplete);
-    Actor actor = actorDie.roll();
-    Action action = actionDie.roll();
+    Actor actor = roller.actorDie.roll();
+    Action action = roller.actionDie.roll();
     handleRoll(actor, action);
     checkForWin();
     if (isComplete) {
