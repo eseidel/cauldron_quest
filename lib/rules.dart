@@ -63,6 +63,15 @@ abstract class Token {
     newLocation.tokens.add(this);
   }
 
+  void removeFromBoard() {
+    assert(_location != null);
+    if (_location == null) {
+      return;
+    }
+    _location!.tokens.remove(this);
+    _location = null;
+  }
+
   String debugString();
 }
 
@@ -127,8 +136,12 @@ class Space {
   }
 
   bool isBlocked() => tokens.any((token) => token is Blocker);
-  void addBlocker() => tokens.add(Blocker());
-  void removeBlocker() => tokens.removeWhere((token) => token is Blocker);
+  void addBlocker() => Blocker().moveTo(this);
+  void removeBlocker() {
+    var blockers = tokens.where((token) => token is Blocker).toList();
+    assert(blockers.length <= 1);
+    blockers.forEach((token) => token.removeFromBoard());
+  }
 
   void connectTo(Space next, {bool setWizardForward = false}) {
     adjacentSpaces.add(next);

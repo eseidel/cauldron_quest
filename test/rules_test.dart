@@ -211,4 +211,12 @@ void main() {
     expect(board.blockerSpaces[4].isBlocked(), true);
     expect(board.haveUsedSpellBreaker, true);
   });
+
+  test('blocker tokens are connected to spaces', () {
+    Board board = Board();
+    var blockerSpace = board.blockerSpaces.first;
+    blockerSpace.addBlocker();
+    var blocker = blockerSpace.tokens.first;
+    expect(blocker.location, blockerSpace);
+  });
 }
