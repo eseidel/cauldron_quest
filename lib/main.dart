@@ -27,13 +27,18 @@ class GameView extends StatefulWidget {
   GameView({Key? key}) : super(key: key);
 
   @override
-  _GameViewState createState() => _GameViewState();
+  _GameViewState createState() {
+    var game = CauldronQuest();
+    // for (var bottle in game.board.neededBottles)
+    //   bottle.moveTo(game.board.startSpaces.first);
+    return _GameViewState(game);
+  }
 }
 
 class _GameViewState extends State<GameView> {
-  late CauldronQuest game = CauldronQuest();
+  late CauldronQuest game;
 
-  _GameViewState();
+  _GameViewState(this.game);
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +63,11 @@ class _GameViewState extends State<GameView> {
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           setState(() {
-            game.takeTurn();
+            if (game.isComplete) {
+              game = CauldronQuest();
+            } else {
+              game.takeTurn();
+            }
           });
         },
         child: Icon(game.isComplete ? Icons.refresh : Icons.skip_next),
@@ -78,11 +87,16 @@ class Palette {
   static final Color wizardPathBackground = Colors.purple.shade100;
   static final Color cauldron = Colors.teal.shade300;
 
-  static Color tokenColor(Token token) {
+  static Color tokenColor(Token token, Set<int> neededIngredients) {
     if (token is Wizard) return Colors.deepPurple.shade300;
-    if (token is Blocker) return Colors.black45;
-    if (token is Bottle && token.isRevealed) return Colors.white70;
-    if (token is Bottle) return Colors.green.shade300;
+    if (token is Blocker) return Colors.black87;
+    if (token is Bottle) {
+      if (token.isRevealed) {
+        bool isNeeded = neededIngredients.contains(token.ingredient);
+        return isNeeded ? Colors.orange.shade100 : Colors.white70;
+      }
+      return Colors.green.shade300;
+    }
     return Colors.orangeAccent.shade400;
   }
 }
@@ -102,9 +116,13 @@ class BoardMetrics {
 
   static const wizardPathOffset = 4;
 
-  double radiusWithOffset(int offset) => radius - (offset * radiusStep);
+  double radiusWithOffset(double offset) => radius - (offset * radiusStep);
 
-  Offset offsetFromPolar({required double angle, required double radius}) {
+  Offset offsetFromPolar(
+      {required double angle, required double radiusOffset}) {
+    // Convert from board coords to actual polar coords.
+    angle *= angleStep;
+    var radius = radiusWithOffset(radiusOffset);
     return Offset(cos(angle) * radius, sin(angle) * radius) + center;
   }
 }
@@ -125,8 +143,8 @@ class BackgroundPainter {
   void drawPathBackground({int offset = 0}) {
     var pathBackground = Paint();
     pathBackground.color = Palette.pathBackground;
-    canvas.drawCircle(
-        metrics.center, metrics.radiusWithOffset(offset), pathBackground);
+    canvas.drawCircle(metrics.center,
+        metrics.radiusWithOffset(offset.toDouble()), pathBackground);
   }
 
   void drawVoids({int offset = 0}) {
@@ -139,7 +157,8 @@ class BackgroundPainter {
       var startAngle = 2 * i * metrics.angleStep;
       canvas.drawArc(
           Rect.fromCircle(
-              center: metrics.center, radius: metrics.radiusWithOffset(offset)),
+              center: metrics.center,
+              radius: metrics.radiusWithOffset(offset.toDouble())),
           startAngle,
           metrics.angleStep,
           true,
@@ -208,23 +227,10 @@ class PiecesPainter extends CustomPainter {
   final Board board;
   PiecesPainter(this.board);
 
-  Offset centerForSpace(BoardMetrics metrics, Space space) {
-    // This is the wrong method for painting in the cauldron.
-    if (space == board.cauldron) {
-      return metrics.center;
-    }
-    // All spaces except the goal have coords.
-    Coords coords = space.coords!;
-    return metrics.offsetFromPolar(
-        angle: (coords.angle + 0.5) * metrics.angleStep,
-        radius:
-            metrics.radiusWithOffset(coords.radius) - metrics.radiusStep / 2);
-  }
-
   void paintTokenAt(
       Canvas canvas, Token token, Offset tokenCenter, BoardMetrics metrics) {
     var paint = Paint();
-    paint.color = Palette.tokenColor(token);
+    paint.color = Palette.tokenColor(token, board.neededIngredients);
     canvas.drawCircle(tokenCenter, metrics.tokenRadius, paint);
   }
 
@@ -232,21 +238,28 @@ class PiecesPainter extends CustomPainter {
       Canvas canvas, BoardMetrics metrics, Space cauldron) {
     var tokens = cauldron.tokens;
     if (tokens.length == 1) {
-      paintTokenAt(canvas, tokens.first, metrics.center, metrics);
+      paintTokenAt(canvas, tokens[0], metrics.center, metrics);
+      return;
     }
-    if (tokens.length == 2) {
-      paintTokenAt(canvas, tokens.first,
-          metrics.offsetFromPolar(angle: 6, radius: 11), metrics);
-      paintTokenAt(canvas, tokens.last,
-          metrics.offsetFromPolar(angle: 0, radius: 11), metrics);
+
+    double tokenAngleSpacing = 12 / tokens.length;
+    Offset tokenOffset(double angle) =>
+        metrics.offsetFromPolar(angle: angle, radiusOffset: 11);
+    for (int i = 0; i < tokens.length; i++) {
+      var tokenCenter = tokenOffset(i * tokenAngleSpacing);
+      paintTokenAt(canvas, tokens[i], tokenCenter, metrics);
     }
-    if (tokens.length == 3) {
-      paintTokenAt(canvas, tokens[0],
-          metrics.offsetFromPolar(angle: 9, radius: 11), metrics);
-      paintTokenAt(canvas, tokens[1],
-          metrics.offsetFromPolar(angle: 5, radius: 11), metrics);
-      paintTokenAt(canvas, tokens[2],
-          metrics.offsetFromPolar(angle: 1, radius: 11), metrics);
+  }
+
+  void paintTokens(Canvas canvas, BoardMetrics metrics, List<Token> tokens) {
+    double tokenAngleSpacing = 1 / (tokens.length + 1);
+    for (int i = 0; i < tokens.length; i++) {
+      var token = tokens[i];
+      Coords coords = token.location!.coords!;
+      var tokenCenter = metrics.offsetFromPolar(
+          angle: (coords.angle + (i + 1) * tokenAngleSpacing),
+          radiusOffset: coords.radius + .5);
+      paintTokenAt(canvas, token, tokenCenter, metrics);
     }
   }
 
@@ -262,11 +275,8 @@ class PiecesPainter extends CustomPainter {
     for (var space in spacesToPaint) {
       if (space == board.cauldron) {
         paintTokensInCauldron(canvas, metrics, space);
-      }
-      Offset tokenCenter = centerForSpace(metrics, space);
-      for (var token in space.tokens) {
-        paintTokenAt(canvas, token, tokenCenter, metrics);
-        // FIXME: Handle two tokens.
+      } else {
+        paintTokens(canvas, metrics, space.tokens);
       }
     }
   }
