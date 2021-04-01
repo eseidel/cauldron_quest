@@ -103,12 +103,27 @@ class Space {
   bool onWizardPath;
   Space? wizardForward;
   late String name;
+  Coords? coords;
 
-  Space({Token? initialToken, this.onWizardPath = false, String? name}) {
+  Space({
+    Token? initialToken,
+    this.onWizardPath = false,
+    String? name,
+    this.coords,
+  }) {
     if (initialToken != null) {
       tokens.add(initialToken);
     }
-    this.name = name ?? "";
+    this.name = name ?? ((coords != null) ? nameForCoords(coords!) : '');
+  }
+
+  static String nameForCoords(Coords coords) {
+    assert(coords.angle % 2 == 1 || coords.radius == 4);
+    // We could re-name these to be more consistent. :/
+    if (coords.radius == 4) {
+      return 'w:${coords.angle}';
+    }
+    return '${coords.angle ~/ 2}:${coords.radius}';
   }
 
   bool isBlocked() => tokens.any((token) => token is Blocker);
@@ -226,6 +241,11 @@ class SaveState {
   }
 }
 
+class Coords {
+  final int angle, radius;
+  Coords(this.angle, this.radius);
+}
+
 class Board {
   static const int ingredientCount = 6;
 
@@ -253,12 +273,12 @@ class Board {
       required Space to,
       required int spacesBetween,
       bool onWizardPath = false,
-      String generateName(int)?}) {
+      Coords coordsForIndex(int)?}) {
     List<Space> path = [from];
     Space previous = from;
     for (int i = 0; i < spacesBetween; i++) {
-      String name = generateName == null ? '' : generateName(i);
-      Space next = Space(onWizardPath: onWizardPath, name: name);
+      Coords? coords = coordsForIndex == null ? null : coordsForIndex(i);
+      Space next = Space(onWizardPath: onWizardPath, coords: coords);
       previous.connectTo(next, setWizardForward: onWizardPath);
       previous = next;
       path.add(next);
@@ -273,19 +293,18 @@ class Board {
     const int startSpacesCount = 6;
 
     cauldron = Space(name: "goal");
-    startSpaces =
-        List.generate(startSpacesCount, (index) => Space(name: "$index:0"))
-            .toList();
-    var wizardStart = Space(onWizardPath: true, name: "5:0");
+    startSpaces = List.generate(startSpacesCount,
+        (index) => Space(coords: Coords(2 * index + 1, 0))).toList();
+    var wizardStart = Space(onWizardPath: true, coords: Coords(0, 4));
     wizardPath = connectPath(
       from: wizardStart,
       to: wizardStart,
       spacesBetween: wizardPathLength - 1,
       onWizardPath: true,
-      generateName: (index) => "w:${index + 1}",
+      coordsForIndex: (index) => Coords(index + 1, 4),
     );
-    blockerSpaces =
-        List.generate(startSpacesCount, (index) => Space(name: "$index:7"));
+    blockerSpaces = List.generate(
+        startSpacesCount, (index) => Space(coords: Coords(2 * index + 1, 7)));
 
     for (int i = 0; i < wizardPath.length; i++) {
       Space wizardSpace = wizardPath[i];
@@ -295,19 +314,19 @@ class Board {
           from: startSpaces[pathIndex],
           to: wizardSpace,
           spacesBetween: 3,
-          generateName: (index) => "$pathIndex:${1 + index}",
+          coordsForIndex: (index) => Coords(i, index + 1),
         );
         connectPath(
           from: wizardSpace,
           to: blockerSpaces[pathIndex],
           spacesBetween: 2,
-          generateName: (index) => "$pathIndex:${5 + index}",
+          coordsForIndex: (index) => Coords(i, index + 5),
         );
         connectPath(
           from: blockerSpaces[pathIndex],
           to: cauldron,
           spacesBetween: 2,
-          generateName: (index) => "$pathIndex:${8 + index}",
+          coordsForIndex: (index) => Coords(i, index + 8),
         );
       }
     }
