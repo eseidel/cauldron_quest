@@ -808,4 +808,8 @@ class CauldronQuest {
     // TODO: Not sure this belongs here.
     board.updateDistances();
   }
+
+  int get turnsTaken {
+    return stats.turnCount;
+  }
 }

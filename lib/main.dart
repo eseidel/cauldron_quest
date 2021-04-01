@@ -27,18 +27,45 @@ class GameView extends StatefulWidget {
   GameView({Key? key}) : super(key: key);
 
   @override
-  _GameViewState createState() {
-    var game = CauldronQuest();
-    // for (var bottle in game.board.neededBottles)
-    //   bottle.moveTo(game.board.startSpaces.first);
-    return _GameViewState(game);
-  }
+  _GameViewState createState() => _GameViewState(0);
 }
 
 class _GameViewState extends State<GameView> {
+  int seed = 0;
   late CauldronQuest game;
+  double maxTurns = 0;
 
-  _GameViewState(this.game);
+  _GameViewState(this.seed) {
+    createNewGame();
+  }
+
+  int maxTurnsInSeed(int seed) {
+    game = CauldronQuest(Random(seed));
+    while (!game.isComplete) {
+      game.takeTurn();
+    }
+    return game.turnsTaken;
+  }
+
+  void createNewGame() {
+    seed = Random().nextInt(1000000);
+    maxTurns = maxTurnsInSeed(seed).toDouble();
+    game = CauldronQuest(Random(seed));
+  }
+
+  double get currentTurn {
+    return game.turnsTaken.toDouble();
+  }
+
+  set currentTurn(double newTurnDouble) {
+    int newTurn = newTurnDouble.toInt();
+    if (game.turnsTaken == newTurn) return;
+
+    game = CauldronQuest(Random(seed));
+    for (int i = 0; i < newTurn; i++) {
+      game.takeTurn();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,24 +74,39 @@ class _GameViewState extends State<GameView> {
         title: Text("Cauldron Quest"),
       ),
       body: Center(
-        child: SizedBox(
-          width: 600,
-          height: 600,
-          // child: CustomPaint(painter: BoardPainter()),
-          child: Stack(
-            children: [
-              Positioned.fill(child: CustomPaint(painter: BoardPainter())),
-              Positioned.fill(
-                  child: CustomPaint(painter: PiecesPainter(game.board))),
-            ],
-          ),
+        child: Column(
+          children: [
+            SizedBox(
+              width: 600,
+              height: 600,
+              child: Stack(
+                children: [
+                  Positioned.fill(child: CustomPaint(painter: BoardPainter())),
+                  Positioned.fill(
+                      child: CustomPaint(painter: PiecesPainter(game.board))),
+                ],
+              ),
+            ),
+            Slider(
+              value: currentTurn,
+              min: 0,
+              max: maxTurns,
+              divisions: maxTurns.toInt(),
+              label: currentTurn.round().toString(),
+              onChanged: (double value) {
+                setState(() {
+                  currentTurn = value;
+                });
+              },
+            )
+          ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           setState(() {
             if (game.isComplete) {
-              game = CauldronQuest();
+              createNewGame();
             } else {
               game.takeTurn();
             }
