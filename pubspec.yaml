@@ -12,7 +12,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   stats: ^2.0.0
   a_star:
-    git: git@github.com:sethladd/dart-a-star.git
+    git: https://github.com/sethladd/dart-a-star.git
 
 dev_dependencies:
   test: ^1.16.5

@@ -7,13 +7,18 @@ Just a quick script to look at winrates in my kid's favorite boardgame.
 
 # Example output
 
-`bin/charms.dart`
+```
+dart run bin/charms.dart
+
 Charm % chance of success:
 Reveal: 66.9%
 Swap: 66.9%
 Super Power: 37.6%
+```
 
-`bin/simulate.dart`
+```
+dart run bin/simulate.dart
+
 Simulating 10000 games...
 Completed: 0:00:10.059390
 Turns until blocked: {count: 10000, average: 32.4, min: 8, max: 72, median: 32.0, standardDeviation: 7.8}
@@ -29,6 +34,8 @@ Potion spaces lost: {count: 10000, average: 6.0, min: 0, max: 71, median: 4.0, s
 Wizard spaces moved: {count: 10000, average: 17.9, min: 0, max: 78, median: 17.0, standardDeviation: 9.5}
 50.6% actual wins, N=10000
 79.2% max wins, N=10000
+```
 
 Issues:
 * Unclear why median turn length dropped from 42 (expected?) to 32?
+* Consider scoring boards.  Policy vs. Simulating.

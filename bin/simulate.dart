@@ -59,10 +59,12 @@ void printAggregateStatistics(List<GameStats> gameStats) {
   print("${toPercent(possibleWins)} max wins, N=${gameStats.length}");
 }
 
+int seed = 30000;
+
 List<GameStats> simulateGames(int gameCount) {
   List<GameStats> gameStats = <GameStats>[];
   for (int i = 0; i < gameCount; i++) {
-    CauldronQuest game = CauldronQuest();
+    CauldronQuest game = CauldronQuest(seed++);
     while (!game.isComplete) {
       game.takeTurn();
     }
