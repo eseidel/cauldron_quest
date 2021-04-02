@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'rules.dart';
 
@@ -35,8 +36,31 @@ class _GameViewState extends State<GameView> {
   late CauldronQuest game;
   double maxTurns = 0;
 
+  final textController = TextEditingController();
+
+  @override
+  void dispose() {
+    // Clean up the controller when the widget is disposed.
+    textController.dispose();
+    super.dispose();
+  }
+
   _GameViewState(this.seed) {
     createNewGame();
+  }
+
+  @override
+  void initState() {
+    textController.addListener(() {
+      final String text = textController.text;
+      textController.value = textController.value.copyWith(
+        text: text,
+        selection:
+            TextSelection(baseOffset: text.length, extentOffset: text.length),
+        composing: TextRange.empty,
+      );
+    });
+    super.initState();
   }
 
   int maxTurnsInSeed(int seed) {
@@ -51,6 +75,12 @@ class _GameViewState extends State<GameView> {
     seed = Random().nextInt(1000000);
     maxTurns = maxTurnsInSeed(seed).toDouble();
     game = CauldronQuest(Random(seed));
+    textController.value = TextEditingValue(text: game.board.saveString());
+  }
+
+  void takeTurn() {
+    game.takeTurn();
+    textController.value = TextEditingValue(text: game.board.saveString());
   }
 
   double get currentTurn {
@@ -76,6 +106,29 @@ class _GameViewState extends State<GameView> {
       body: Center(
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: TextField(
+                        decoration: InputDecoration(hintText: "Save String"),
+                        controller: textController,
+                      ),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Clipboard.setData(
+                          new ClipboardData(text: textController.text));
+                    },
+                    child: Icon(Icons.copy),
+                  )
+                ],
+              ),
+            ),
             SizedBox(
               width: 600,
               height: 600,
@@ -108,7 +161,7 @@ class _GameViewState extends State<GameView> {
             if (game.isComplete) {
               createNewGame();
             } else {
-              game.takeTurn();
+              takeTurn();
             }
           });
         },
