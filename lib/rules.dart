@@ -694,6 +694,7 @@ bool isLegalMove(Bottle bottle, Space toSpace, Action action, Board board) {
 }
 
 class CauldronQuest {
+  int? seed;
   final Random _random;
   final GameStats stats = GameStats();
   late final Board board = Board(random: _random);
@@ -703,7 +704,7 @@ class CauldronQuest {
   bool isComplete = false;
   bool wizardWon = false;
 
-  CauldronQuest([Random? random]) : _random = random ?? Random();
+  CauldronQuest([this.seed]) : _random = Random(seed);
 
   void handleRoll(Actor actor, Action action) {
     stats.turnCount++;

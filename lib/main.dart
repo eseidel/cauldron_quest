@@ -66,23 +66,27 @@ class _GameViewState extends State<GameView> {
   }
 
   int maxTurnsInSeed(int seed) {
-    game = CauldronQuest(Random(seed));
+    game = CauldronQuest(seed);
     while (!game.isComplete) {
       game.takeTurn();
     }
     return game.turnsTaken;
   }
 
+  void updateSaveString() {
+    _textController.value = TextEditingValue(text: game.board.saveString());
+  }
+
   void createNewGame() {
     seed = Random().nextInt(1000000);
     maxTurns = maxTurnsInSeed(seed).toDouble();
-    game = CauldronQuest(Random(seed));
-    _textController.value = TextEditingValue(text: game.board.saveString());
+    game = CauldronQuest(seed);
+    updateSaveString();
   }
 
   void takeTurn() {
     game.takeTurn();
-    _textController.value = TextEditingValue(text: game.board.saveString());
+    updateSaveString();
   }
 
   double get currentTurn {
@@ -93,10 +97,25 @@ class _GameViewState extends State<GameView> {
     int newTurn = newTurnDouble.toInt();
     if (game.turnsTaken == newTurn) return;
 
-    game = CauldronQuest(Random(seed));
+    game = CauldronQuest(seed);
     for (int i = 0; i < newTurn; i++) {
       game.takeTurn();
     }
+  }
+
+  void playUntilNextLoss() {
+    bool foundLoss = false;
+    while (foundLoss) {
+      game = CauldronQuest(seed++);
+      while (!game.isComplete) {
+        game.takeTurn();
+      }
+      foundLoss = game.wizardWon;
+    }
+    setState(() {
+      maxTurns = game.turnsTaken.toDouble();
+      updateSaveString();
+    });
   }
 
   @override
@@ -108,6 +127,9 @@ class _GameViewState extends State<GameView> {
       body: Center(
         child: Column(
           children: [
+            // This text field should move into its own widget.
+            // However I'm not sure how to update its state on board changes
+            // once I do that.
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
@@ -132,16 +154,31 @@ class _GameViewState extends State<GameView> {
                 ],
               ),
             ),
-            SizedBox(
-              width: 600,
-              height: 600,
-              child: Stack(
-                children: [
-                  Positioned.fill(child: CustomPaint(painter: BoardPainter())),
-                  Positioned.fill(
-                      child: CustomPaint(painter: PiecesPainter(game.board))),
-                ],
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                SizedBox(
+                  width: 600,
+                  height: 600,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                          child: CustomPaint(painter: BoardPainter())),
+                      Positioned.fill(
+                          child:
+                              CustomPaint(painter: PiecesPainter(game.board))),
+                    ],
+                  ),
+                ),
+                Column(
+                  children: [
+                    ElevatedButton(
+                      child: Text("Next Loss"),
+                      onPressed: playUntilNextLoss,
+                    )
+                  ],
+                )
+              ],
             ),
             Slider(
               value: currentTurn,

@@ -230,8 +230,8 @@ void main() {
       return game.stats.turnCount;
     }
 
-    var game = CauldronQuest(Random(0));
-    var game2 = CauldronQuest(Random(0));
+    var game = CauldronQuest(0);
+    var game2 = CauldronQuest(0);
     expect(runToCompletion(game), runToCompletion(game2));
   });
 }
