@@ -36,12 +36,14 @@ class _GameViewState extends State<GameView> {
   late CauldronQuest game;
   double maxTurns = 0;
 
-  final textController = TextEditingController();
+  final _textController = TextEditingController();
+  final _textFocusNode = FocusNode();
 
   @override
   void dispose() {
     // Clean up the controller when the widget is disposed.
-    textController.dispose();
+    _textFocusNode.dispose();
+    _textController.dispose();
     super.dispose();
   }
 
@@ -51,12 +53,12 @@ class _GameViewState extends State<GameView> {
 
   @override
   void initState() {
-    textController.addListener(() {
-      final String text = textController.text;
-      textController.value = textController.value.copyWith(
+    _textFocusNode.addListener(() {
+      if (!_textFocusNode.hasFocus) return;
+      final String text = _textController.text;
+      _textController.value = _textController.value.copyWith(
         text: text,
-        selection:
-            TextSelection(baseOffset: text.length, extentOffset: text.length),
+        selection: TextSelection(baseOffset: 0, extentOffset: text.length),
         composing: TextRange.empty,
       );
     });
@@ -75,12 +77,12 @@ class _GameViewState extends State<GameView> {
     seed = Random().nextInt(1000000);
     maxTurns = maxTurnsInSeed(seed).toDouble();
     game = CauldronQuest(Random(seed));
-    textController.value = TextEditingValue(text: game.board.saveString());
+    _textController.value = TextEditingValue(text: game.board.saveString());
   }
 
   void takeTurn() {
     game.takeTurn();
-    textController.value = TextEditingValue(text: game.board.saveString());
+    _textController.value = TextEditingValue(text: game.board.saveString());
   }
 
   double get currentTurn {
@@ -114,15 +116,16 @@ class _GameViewState extends State<GameView> {
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: TextField(
+                        focusNode: _textFocusNode,
                         decoration: InputDecoration(hintText: "Save String"),
-                        controller: textController,
+                        controller: _textController,
                       ),
                     ),
                   ),
                   ElevatedButton(
                     onPressed: () {
                       Clipboard.setData(
-                          new ClipboardData(text: textController.text));
+                          new ClipboardData(text: _textController.text));
                     },
                     child: Icon(Icons.copy),
                   )
